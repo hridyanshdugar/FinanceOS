@@ -40,12 +40,14 @@ export function ClientWorkspace() {
     api.getClient(selectedClientId).then((data) => {
       const detail = data as unknown as ClientDetail;
       setClientDetail(detail);
-      const existingMessages: ConversationMessage[] = detail.chat_history.map((ch) => ({
-        id: ch.id,
-        role: ch.role === "advisor" ? "advisor" : "shadow",
-        content: ch.content,
-        timestamp: ch.created_at,
-      }));
+      const existingMessages: ConversationMessage[] = detail.chat_history
+        .filter((ch) => ch.role !== "client")
+        .map((ch) => ({
+          id: ch.id,
+          role: ch.role === "advisor" ? "advisor" : "shadow",
+          content: ch.content,
+          timestamp: ch.created_at,
+        }));
       setConversation(existingMessages);
     });
   }, [selectedClientId, setClientDetail, setConversation]);

@@ -17,10 +17,10 @@ const ACTION_SUGGESTIONS = [
 export function InputBar() {
   const [input, setInput] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const { selectedClientId, clientDetail, conversation, addMessage, isThinking, setIsThinking } = useAppStore();
+  const { selectedClientId, clientDetail, addMessage, isThinking, setIsThinking } = useAppStore();
   const sendWs = useWsSend();
 
-  const showSuggestions = selectedClientId && !isThinking && conversation.length === 0 && !input;
+  const showSuggestions = selectedClientId && !isThinking;
 
   useEffect(() => {
     if (textareaRef.current) {
