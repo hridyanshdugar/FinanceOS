@@ -3,11 +3,13 @@
 import { useState, useRef, useEffect } from "react";
 import { SendHorizontal } from "lucide-react";
 import { useAppStore } from "@/lib/store";
+import { useWsSend } from "@/components/layout/AppShell";
 
 export function InputBar() {
   const [input, setInput] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const { selectedClientId, addMessage, isThinking } = useAppStore();
+  const { selectedClientId, addMessage, isThinking, setIsThinking } = useAppStore();
+  const sendWs = useWsSend();
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -26,6 +28,14 @@ export function InputBar() {
       role: "advisor",
       content: trimmed,
       timestamp: new Date().toISOString(),
+    });
+
+    setIsThinking(true);
+
+    sendWs({
+      type: "chat_message",
+      client_id: selectedClientId,
+      content: trimmed,
     });
 
     setInput("");

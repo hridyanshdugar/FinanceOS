@@ -7,6 +7,7 @@ from db.seed import seed
 from routes.clients import router as clients_router
 from routes.alerts import router as alerts_router
 from routes.agents import router as agents_router
+from routes.ws import router as ws_router
 
 
 @asynccontextmanager
@@ -29,6 +30,7 @@ app.add_middleware(
 app.include_router(clients_router)
 app.include_router(alerts_router)
 app.include_router(agents_router)
+app.include_router(ws_router)
 
 
 @app.get("/")
