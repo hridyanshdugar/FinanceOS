@@ -34,9 +34,4 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ task_id: taskId, action, note, edited_content: editedContent }),
     }),
-  sendMessage: (clientId: string, content: string) =>
-    fetchJSON<Record<string, unknown>>("/api/chat/send", {
-      method: "POST",
-      body: JSON.stringify({ client_id: clientId, content }),
-    }),
 };

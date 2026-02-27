@@ -118,20 +118,36 @@ RECENT CONVERSATION HISTORY:
         }
 
 
+BLOCKED_IMPORTS = {"os", "subprocess", "sys", "shutil", "socket", "http", "urllib", "requests", "pathlib", "glob", "signal", "ctypes"}
+
+
 def _execute_python_safely(code: str, timeout: int = 10) -> str:
-    """Execute Python code in a subprocess sandbox and capture output."""
+    """Execute Python code in a restricted subprocess and capture output."""
+    for mod in BLOCKED_IMPORTS:
+        if f"import {mod}" in code or f"from {mod}" in code:
+            return f"[Blocked: import of '{mod}' is not allowed in sandbox]"
+
+    if "open(" in code or "__import__" in code or "eval(" in code or "exec(" in code:
+        return "[Blocked: unsafe operation detected (open/eval/exec/__import__)]"
+
     try:
         with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
             f.write(code)
             f.flush()
             tmp_path = f.name
 
+        safe_env = {
+            "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+            "PYTHONDONTWRITEBYTECODE": "1",
+            "HOME": "/tmp",
+        }
+
         result = subprocess.run(
             ["python3", tmp_path],
             capture_output=True,
             text=True,
             timeout=timeout,
-            env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+            env=safe_env,
         )
 
         os.unlink(tmp_path)

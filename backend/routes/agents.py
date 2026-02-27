@@ -9,6 +9,7 @@ router = APIRouter(prefix="/api/agents", tags=["agents"])
 
 @router.get("/tasks")
 def list_tasks(status: str = None, client_id: str = None, limit: int = 20) -> list[dict]:
+    limit = max(1, min(100, limit))
     conn = get_connection()
     query = "SELECT * FROM agent_tasks WHERE 1=1"
     params = []
