@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import os
 import sqlite3
 from pathlib import Path
 from typing import Optional, List
 
-DB_DIR = Path(__file__).parent
-DB_PATH = DB_DIR / "ws_shadow.db"
-SCHEMA_PATH = DB_DIR / "schema.sql"
+_SRC_DIR = Path(__file__).parent
+SCHEMA_PATH = _SRC_DIR / "schema.sql"
+
+_db_dir = os.environ.get("DB_DIR", str(_SRC_DIR))
+DB_PATH = Path(_db_dir) / "ws_shadow.db"
 
 
 def get_connection() -> sqlite3.Connection:

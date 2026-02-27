@@ -5,6 +5,8 @@ import os
 
 subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", "requirements.txt", "-q"])
 
+os.environ.setdefault("DB_DIR", "/data")
+
 port = os.environ.get("PORT", "8000")
 os.execvp(
     sys.executable,

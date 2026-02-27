@@ -144,7 +144,7 @@ Once both services are deployed, open the frontend URL. The dashboard should loa
 
 ### Notes on Railway
 
-- The SQLite database lives in the backend container's filesystem. It is ephemeral — data resets on each deploy. For persistent storage, attach a Railway volume to `/app/db/` or migrate to PostgreSQL.
+- The backend's `railway.json` declares a persistent volume mounted at `/data`. The SQLite database is written there so it survives redeploys. If you need to reset the seed data, delete the volume and redeploy.
 - Railway's free tier has usage limits. The LLM API calls (Claude + GPT-4o) are billed by Anthropic and OpenAI directly, not by Railway.
 - If the WebSocket connection fails, check that your backend domain is correct and uses `wss://` in the frontend env var.
 
