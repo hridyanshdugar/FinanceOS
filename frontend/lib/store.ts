@@ -105,10 +105,11 @@ export const useAppStore = create<AppState>((set) => ({
   setCurrentTaskId: (id) => set({ currentTaskId: id }),
 
   isThinking: false,
-  setIsThinking: (thinking) => set((s) => ({
+  setIsThinking: (thinking) => set({
     isThinking: thinking,
-    ...(thinking ? {} : { thinkingAgents: {}, thinkingStep: "" }),
-  })),
+    thinkingAgents: {},
+    thinkingStep: thinking ? "Analyzing your question..." : "",
+  }),
 
   thinkingStep: "",
   setThinkingStep: (step) => set({ thinkingStep: step }),

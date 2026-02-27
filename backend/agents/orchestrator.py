@@ -11,6 +11,8 @@ import asyncio
 from datetime import datetime
 from typing import Optional
 
+import re
+
 from fastapi import WebSocket
 
 from db.database import get_connection, dicts_from_rows
@@ -44,8 +46,42 @@ If the advisor wants to update the knowledge base, respond:
 {"agents": [], "reasoning": "brief explanation", "direct_answer": false, "rag_update": true, "rag_entries": ["concise fact 1", "concise fact 2"]}"""
 
 
+RAG_PREFIXES = [
+    "remember", "note:", "note that", "add to knowledge base",
+    "save that", "record that", "keep in mind", "update:",
+    "don't forget", "log that", "mark that",
+]
+
+def _is_rag_update(query: str) -> bool:
+    """Fast keyword check for obvious knowledge base update commands."""
+    lower = query.lower().strip()
+    for prefix in RAG_PREFIXES:
+        if lower.startswith(prefix):
+            return True
+    return bool(re.match(r"^(he|she|they|client|this client)\s+(mentioned|said|told|prefers?|wants?|needs?|is |has |just )", lower))
+
+
+def _extract_rag_entries(query: str) -> list:
+    """Extract concise entries from a knowledge base update command."""
+    lower = query.lower().strip()
+    for prefix in RAG_PREFIXES:
+        if lower.startswith(prefix):
+            remainder = query.strip()[len(prefix):].strip().lstrip(":").strip()
+            if remainder:
+                return [remainder]
+            break
+    # Fall back to using the whole message minus obvious prefixes
+    cleaned = re.sub(r"^(he|she|they|client|this client)\s+", "", query.strip(), flags=re.IGNORECASE)
+    return [cleaned] if cleaned else []
+
+
 async def _classify_query(query: str) -> dict:
-    """Use Claude to determine which agents to dispatch."""
+    """Use Claude to determine which agents to dispatch, with fast-path for RAG updates."""
+    if _is_rag_update(query):
+        entries = _extract_rag_entries(query)
+        if entries:
+            return {"agents": [], "direct_answer": False, "rag_update": True, "rag_entries": entries, "reasoning": "keyword match: knowledge base update"}
+
     try:
         from services.llm import call_claude_json
         result = await call_claude_json(ROUTING_PROMPT, f"Advisor's message: {query}")
