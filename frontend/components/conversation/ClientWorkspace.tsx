@@ -14,6 +14,7 @@ import {
   User,
   Briefcase,
   MapPin,
+  RotateCcw,
 } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 import { api } from "@/lib/api";
@@ -91,6 +92,8 @@ export function ClientWorkspace() {
   const clientNotes = clientDetail.chat_history.filter((m) => m.role === "client");
   const totalPortfolio = clientDetail.total_portfolio;
 
+  const latestRequest = clientNotes.length > 0 ? clientNotes[clientNotes.length - 1] : null;
+
   if (activePanel === "chat") {
     return (
       <div className="flex-1 flex flex-col h-full">
@@ -108,7 +111,29 @@ export function ClientWorkspace() {
           <span className="text-sm font-medium text-foreground">
             Shadow Agent — {client.name}
           </span>
+          <button
+            onClick={() => setConversation([])}
+            className="ml-auto flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Clear
+          </button>
         </div>
+        {latestRequest && (
+          <div className="border-b border-amber-100 bg-amber-50/60 px-6 py-3">
+            <div className="max-w-3xl mx-auto flex items-start gap-3">
+              <Mail className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-[11px] font-semibold text-amber-700 uppercase tracking-wider mb-0.5">
+                  Client Request
+                </p>
+                <p className="text-sm text-foreground leading-relaxed">
+                  {latestRequest.content}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-3xl mx-auto w-full px-6 py-6">
             <ConversationThread />
@@ -283,12 +308,12 @@ export function ClientWorkspace() {
 
           {/* Right column: Client Notes + Alerts + Quick Actions */}
           <div className="space-y-4">
-            {/* Client Notes */}
+            {/* Client Requests */}
             {clientNotes.length > 0 && (
               <div className="bg-card border border-border rounded-2xl p-5">
                 <div className="flex items-center gap-2 mb-4">
                   <Mail className="h-4 w-4 text-primary" />
-                  <h3 className="text-sm font-semibold text-foreground">Client Notes</h3>
+                  <h3 className="text-sm font-semibold text-foreground">Client Requests</h3>
                 </div>
                 <div className="space-y-3">
                   {clientNotes.map((note) => (
