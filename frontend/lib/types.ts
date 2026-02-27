@@ -88,6 +88,24 @@ export interface AgentTask {
   completed_at: string | null;
 }
 
+export interface ResearchSuggestion {
+  ticker: string;
+  name: string;
+  allocation_pct: number;
+  rationale: string;
+}
+
+export interface ResearchOutput {
+  summary: string;
+  suggestions: ResearchSuggestion[];
+  asset_mix: {
+    equity_pct: number;
+    fixed_income_pct: number;
+    alternatives_pct: number;
+  };
+  account_strategy?: string;
+}
+
 export interface TriTieredOutput {
   numbers: {
     summary: string;
@@ -109,6 +127,7 @@ export interface TriTieredOutput {
     tone: string;
     rag_highlights: string[];
   };
+  research?: ResearchOutput | null;
 }
 
 export interface ConversationMessage {

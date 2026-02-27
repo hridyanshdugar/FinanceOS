@@ -1,12 +1,13 @@
 "use client";
 
-import { BookOpen, Calculator, Shield, CheckCircle2, Loader2, Brain } from "lucide-react";
+import { BookOpen, Calculator, Shield, TrendingUp, CheckCircle2, Loader2, Brain } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 
 const AGENT_META: Record<string, { icon: React.ReactNode; label: string; color: string }> = {
   context: { icon: <BookOpen className="h-3.5 w-3.5" />, label: "Context", color: "text-blue-600" },
   quant: { icon: <Calculator className="h-3.5 w-3.5" />, label: "Quant", color: "text-amber-600" },
   compliance: { icon: <Shield className="h-3.5 w-3.5" />, label: "Compliance", color: "text-emerald-600" },
+  researcher: { icon: <TrendingUp className="h-3.5 w-3.5" />, label: "Research", color: "text-violet-600" },
 };
 
 export function ThinkingIndicator() {

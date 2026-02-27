@@ -3,6 +3,7 @@
 import { X, Sparkles } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 import { NumbersSection } from "./NumbersSection";
+import { ResearchSection } from "./ResearchSection";
 import { ComplianceSection } from "./ComplianceSection";
 import { DraftMessage } from "./DraftMessage";
 import { ActionBar } from "./ActionBar";
@@ -34,6 +35,9 @@ export function ArtifactPanel() {
         {currentAnalysis ? (
           <>
             <NumbersSection data={currentAnalysis.numbers} />
+            {currentAnalysis.research && (
+              <ResearchSection data={currentAnalysis.research} />
+            )}
             <ComplianceSection data={currentAnalysis.compliance} />
             <DraftMessage data={currentAnalysis.draft_message} />
           </>

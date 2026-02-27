@@ -7,10 +7,10 @@ import { useWsSend } from "@/components/layout/AppShell";
 
 const ACTION_SUGGESTIONS = [
   "Check contribution room",
+  "Suggest investments",
   "Run a portfolio review",
   "Draft a check-in email",
   "Compare TFSA vs RRSP",
-  "Summarize this client",
   "Check compliance",
 ];
 

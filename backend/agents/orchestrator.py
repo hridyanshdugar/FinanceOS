@@ -27,6 +27,7 @@ Available agents:
 - context: Reads client profile, knowledge base, documents, and chat history. Drafts personalized emails. Use for questions about client background, communication, goals, or when a draft message is needed.
 - quant: Runs financial calculations (tax brackets, contribution optimization, projections, comparisons). Use ONLY when math, numbers, or financial modeling is explicitly needed.
 - compliance: Checks CRA rules, CIRO suitability, contribution limits, regulatory flags. Use ONLY when the question involves regulatory compliance, contribution limits, or tax rule verification.
+- researcher: Suggests suitable investment products (ETFs, stocks, asset classes, GICs) and asset allocation based on client risk profile, goals, and accounts. Use when the advisor asks about investments, portfolio composition, stock/ETF suggestions, asset allocation, what to buy/sell, or rebalancing.
 
 Rules:
 - If the question is a simple lookup (e.g., "show me the knowledge base", "what accounts does this client have", "summarize this client"), return NO agents — the system can answer directly from the database.
@@ -34,10 +35,11 @@ Rules:
 - If the question needs empathy, personalization, or a draft email, include "context".
 - If the question involves calculations, comparisons, or projections, include "quant".
 - If the question touches on regulations, limits, or compliance, include "compliance".
-- Only include agents that are genuinely needed. Most questions need 1-2 agents, not all 3.
+- If the question involves investment suggestions, ETFs, stocks, portfolio composition, asset allocation, what to buy, or rebalancing, include "researcher".
+- Only include agents that are genuinely needed. Most questions need 1-2 agents, not all 4.
 
 Respond in JSON only:
-{"agents": ["context", "quant", "compliance"], "reasoning": "brief explanation", "direct_answer": false, "rag_update": false, "rag_entries": []}
+{"agents": ["context", "quant", "compliance", "researcher"], "reasoning": "brief explanation", "direct_answer": false, "rag_update": false, "rag_entries": []}
 
 If NO agents are needed (simple lookup), respond:
 {"agents": [], "reasoning": "brief explanation", "direct_answer": true, "rag_update": false, "rag_entries": []}
@@ -86,13 +88,13 @@ async def _classify_query(query: str) -> dict:
         from services.llm import call_claude_json
         result = await call_claude_json(ROUTING_PROMPT, f"Advisor's message: {query}")
         if "agents" not in result:
-            result["agents"] = ["context", "quant", "compliance"]
+            result["agents"] = ["context", "quant", "compliance", "researcher"]
         result["direct_answer"] = result.get("direct_answer", False)
         result["rag_update"] = result.get("rag_update", False)
         result["rag_entries"] = result.get("rag_entries", [])
         return result
     except Exception:
-        return {"agents": ["context", "quant", "compliance"], "direct_answer": False, "rag_update": False, "rag_entries": [], "reasoning": "classification failed, dispatching all"}
+        return {"agents": ["context", "quant", "compliance", "researcher"], "direct_answer": False, "rag_update": False, "rag_entries": [], "reasoning": "classification failed, dispatching all"}
 
 
 async def _direct_response(ws: WebSocket, client: dict, accounts: list, documents: list, rag_entries: list, recent_chat: list, query: str) -> str:
@@ -255,11 +257,13 @@ async def handle_chat_message(ws: WebSocket, message: dict):
     from agents.context_agent import run_context_agent
     from agents.quant_agent import run_quant_agent
     from agents.compliance_agent import run_compliance_agent
+    from agents.researcher_agent import run_researcher_agent
 
     agent_map = {
         "context": (run_context_agent, f"Reading {client['name']}'s profile, knowledge base, documents, and conversation history"),
         "quant": (run_quant_agent, f"Running financial calculations on {client['name']}'s accounts and tax situation"),
         "compliance": (run_compliance_agent, f"Checking CRA rules, CIRO suitability, and regulatory limits for {client['name']}"),
+        "researcher": (run_researcher_agent, f"Researching suitable investments for {client['name']}'s {client.get('risk_profile', 'balanced')} profile"),
     }
 
     agent_tasks_list = []
@@ -298,6 +302,7 @@ async def handle_chat_message(ws: WebSocket, message: dict):
     context_result = result_map.get("context")
     quant_result = result_map.get("quant")
     compliance_result = result_map.get("compliance")
+    researcher_result = result_map.get("researcher")
 
     await send_to(ws, {"type": "thinking", "payload": {"step": "Synthesizing results..."}})
 
@@ -325,9 +330,10 @@ async def handle_chat_message(ws: WebSocket, message: dict):
             "tone": "Warm + Professional",
             "rag_highlights": [],
         },
+        "research": researcher_result or None,
     }
 
-    summary = await _synthesize_summary(client, content, context_result, quant_result, compliance_result)
+    summary = await _synthesize_summary(client, content, context_result, quant_result, compliance_result, researcher_result)
 
     conn.execute(
         "INSERT INTO chat_history (id, client_id, role, content, created_at) VALUES (?, ?, ?, ?, ?)",
@@ -366,6 +372,7 @@ async def _synthesize_summary(
     context_result: Optional[dict],
     quant_result: Optional[dict],
     compliance_result: Optional[dict],
+    researcher_result: Optional[dict] = None,
 ) -> str:
     """Use Claude to synthesize agent results into a conversational summary for the advisor."""
     try:
@@ -380,6 +387,9 @@ async def _synthesize_summary(
             status = compliance_result.get("status", "clear")
             items_text = "; ".join(i.get("message", "") for i in compliance_result.get("items", [])[:3])
             parts.append(f"COMPLIANCE ({status}): {items_text}" if items_text else f"COMPLIANCE: {status}")
+        if researcher_result and researcher_result.get("summary"):
+            suggestions_text = ", ".join(s.get("ticker", "") for s in researcher_result.get("suggestions", [])[:5])
+            parts.append(f"INVESTMENT RESEARCH: {researcher_result['summary']} Suggestions: {suggestions_text}")
 
         if not parts:
             return "I've looked into this for you. Here's what I found — open the full analysis for details."
