@@ -77,6 +77,14 @@ CREATE TABLE IF NOT EXISTS alerts (
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS client_rag (
+    id TEXT PRIMARY KEY,
+    client_id TEXT NOT NULL REFERENCES clients(id),
+    content TEXT NOT NULL,
+    source TEXT NOT NULL DEFAULT 'advisor',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS embeddings (
     id TEXT PRIMARY KEY,
     source_table TEXT NOT NULL,
@@ -92,4 +100,5 @@ CREATE INDEX IF NOT EXISTS idx_documents_client ON documents(client_id);
 CREATE INDEX IF NOT EXISTS idx_chat_history_client ON chat_history(client_id);
 CREATE INDEX IF NOT EXISTS idx_agent_tasks_client ON agent_tasks(client_id);
 CREATE INDEX IF NOT EXISTS idx_alerts_client ON alerts(client_id);
+CREATE INDEX IF NOT EXISTS idx_client_rag_client ON client_rag(client_id);
 CREATE INDEX IF NOT EXISTS idx_embeddings_source ON embeddings(source_table, source_id);

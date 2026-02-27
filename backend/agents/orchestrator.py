@@ -59,6 +59,13 @@ async def handle_chat_message(ws: WebSocket, message: dict):
             (client_id,),
         ).fetchall()
     )
+    rag_entries = dicts_from_rows(
+        conn.execute(
+            "SELECT * FROM client_rag WHERE client_id = ? ORDER BY created_at ASC",
+            (client_id,),
+        ).fetchall()
+    )
+    client["rag_context"] = [r["content"] for r in rag_entries]
 
     await send_to(ws, {"type": "thinking", "payload": {"step": "Starting analysis..."}})
 
@@ -67,8 +74,8 @@ async def handle_chat_message(ws: WebSocket, message: dict):
     compliance_task_id = str(uuid.uuid4())
 
     agent_descriptions = {
-        "context": f"Reading {client['name']}'s profile, goals, documents, and conversation history",
-        "quant": f"Running financial calculations on {client['name']}'s accounts and tax situation",
+        "context": f"Reading {client['name']}'s profile, knowledge base, documents, and conversation history",
+        "quant": f"Running financial calculations on {client['name']}'s accounts, knowledge base, and tax situation",
         "compliance": f"Checking CRA rules, CIRO suitability, and regulatory limits for {client['name']}",
     }
 

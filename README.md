@@ -6,13 +6,15 @@ Built for Canadian financial advisors. All client data, tax rules (CRA), contrib
 
 ## What it does
 
-When an advisor selects a client, FinanceOS displays a workspace with their full financial picture: accounts, balances, contribution room, goals, tax documents, client notes, and action items. The advisor can then "Ask Shadow" to dispatch AI agents that work in parallel:
+When an advisor selects a client, FinanceOS displays a workspace with their full financial picture: accounts, balances, contribution room, tax documents, client requests, and action items. Each client has a **Knowledge Base** — the advisor's living memory of that client. It stores goals, personal context, family details, communication preferences, and anything else the advisor wants the AI to remember. Entries can be added, removed, or updated at any time directly from the workspace.
 
-- **Context Agent** (Claude) — reads the client's profile, goals, documents, and conversation history to generate a personalized draft email
+The advisor can then "Ask Shadow" to dispatch AI agents that work in parallel:
+
+- **Context Agent** (Claude) — reads the client's profile, knowledge base, documents, and conversation history to generate a personalized draft email
 - **Quant Agent** (GPT-4o) — writes and executes Python code for financial calculations (tax brackets, contribution optimization, CESG, HBP comparisons), then returns the results with formulas
 - **Compliance Agent** (Claude) — audits the analysis against CRA rules, CIRO suitability requirements, and contribution limits, with hard-coded regulatory thresholds injected as ground truth
 
-All three agents receive the full client context from the database. They never fabricate numbers — if data is missing, they output "UNKNOWN." Every workflow ends with the advisor reviewing and approving (or editing, or rejecting) the output.
+All three agents receive the full client context from the database, including every Knowledge Base entry. They never fabricate numbers — if data is missing, they output "UNKNOWN." Every workflow ends with the advisor reviewing and approving (or editing, or rejecting) the output.
 
 The system also runs a proactive **Shadow Backtest** that scans all clients for opportunities: idle cash, RRSP deadline approaches, RESP CESG optimization, OAS clawback risk, and RRIF minimum withdrawals. These surface as action items on the dashboard.
 
@@ -151,5 +153,6 @@ Once both services are deployed, open the frontend URL. The dashboard should loa
 ## Demo notes
 
 - There is no login page. The app loads directly into the advisor workspace with a hardcoded advisor identity ("Alex").
-- Client data is seeded on startup with 8 Canadian client profiles spanning different provinces, income levels, account types, and life stages.
+- Client data is seeded on startup with 8 Canadian client profiles spanning different provinces, income levels, account types, and life stages. Each client's Knowledge Base is pre-populated with goals, personal context, and advisor observations.
+- The Knowledge Base is the advisor's memory. Add entries like "Prefers conservative funds" or "Daughter starting university in 2026" and every agent will reference them in subsequent analyses.
 - The agents use real LLM calls (Claude and GPT-4o). Without valid API keys, agent calls will fail gracefully with error messages.

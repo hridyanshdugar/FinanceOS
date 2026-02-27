@@ -1,7 +1,8 @@
 from __future__ import annotations
 import json
 from fastapi import APIRouter, HTTPException
-from db.database import get_connection, dict_from_row, dicts_from_rows
+from pydantic import BaseModel
+from db.database import get_connection, dict_from_row, dicts_from_rows, get_client_rag, add_client_rag, delete_client_rag
 from models.client import Client, Account, Document, ChatMessage, ClientDetail
 
 router = APIRouter(prefix="/api/clients", tags=["clients"])
@@ -52,12 +53,17 @@ def get_client(client_id: str) -> dict:
     )
     total = sum(a["balance"] for a in accounts)
 
+    rag_entries = dicts_from_rows(
+        conn.execute("SELECT * FROM client_rag WHERE client_id = ? ORDER BY created_at ASC", (client_id,)).fetchall()
+    )
+
     conn.close()
     return {
         "client": client,
         "accounts": accounts,
         "documents": documents,
         "chat_history": chat_history,
+        "rag_entries": rag_entries,
         "total_portfolio": total,
     }
 
@@ -81,3 +87,30 @@ def get_chat_history(client_id: str) -> list[dict]:
     ).fetchall()
     conn.close()
     return dicts_from_rows(rows)
+
+
+class RagEntryRequest(BaseModel):
+    content: str
+
+
+@router.get("/{client_id}/rag")
+def list_client_rag(client_id: str) -> list[dict]:
+    return get_client_rag(client_id)
+
+
+@router.post("/{client_id}/rag")
+def create_client_rag(client_id: str, body: RagEntryRequest) -> dict:
+    content = body.content.strip()
+    if not content:
+        raise HTTPException(status_code=400, detail="Content cannot be empty")
+    if len(content) > 500:
+        raise HTTPException(status_code=400, detail="Content too long (max 500 characters)")
+    return add_client_rag(client_id, content, source="advisor")
+
+
+@router.delete("/{client_id}/rag/{entry_id}")
+def remove_client_rag(client_id: str, entry_id: str) -> dict:
+    deleted = delete_client_rag(entry_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="RAG entry not found")
+    return {"status": "deleted"}

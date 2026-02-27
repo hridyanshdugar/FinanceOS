@@ -46,11 +46,20 @@ export interface ChatMessage {
   created_at: string;
 }
 
+export interface RagEntry {
+  id: string;
+  client_id: string;
+  content: string;
+  source: string;
+  created_at: string;
+}
+
 export interface ClientDetail {
   client: Client;
   accounts: Account[];
   documents: Document[];
   chat_history: ChatMessage[];
+  rag_entries: RagEntry[];
   total_portfolio: number;
 }
 

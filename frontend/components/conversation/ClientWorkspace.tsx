@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   MessageSquare,
   LayoutDashboard,
   DollarSign,
-  Target,
   FileText,
   Mail,
   TrendingUp,
@@ -15,12 +14,15 @@ import {
   Briefcase,
   MapPin,
   RotateCcw,
+  Brain,
+  Plus,
+  X,
 } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 import { api } from "@/lib/api";
 import { ConversationThread } from "./ConversationThread";
 import { InputBar } from "./InputBar";
-import type { ClientDetail, ConversationMessage } from "@/lib/types";
+import type { ClientDetail, ConversationMessage, RagEntry } from "@/lib/types";
 
 export function ClientWorkspace() {
   const {
@@ -261,25 +263,8 @@ export function ClientWorkspace() {
               </div>
             </div>
 
-            {/* Goals */}
-            {client.goals.length > 0 && (
-              <div className="bg-card border border-border rounded-2xl p-5">
-                <div className="flex items-center gap-2 mb-4">
-                  <Target className="h-4 w-4 text-primary" />
-                  <h3 className="text-sm font-semibold text-foreground">Goals</h3>
-                </div>
-                <div className="space-y-2">
-                  {client.goals.map((goal, i) => (
-                    <div key={i} className="flex items-center gap-3 py-2 px-3 rounded-xl bg-accent/30">
-                      <div className="h-6 w-6 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center text-xs font-semibold">
-                        {i + 1}
-                      </div>
-                      <p className="text-sm text-foreground">{goal}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            {/* Knowledge Base (RAG) */}
+            <RagPanel clientId={selectedClientId!} entries={clientDetail.rag_entries ?? []} onUpdate={setClientDetail} clientDetail={clientDetail} />
 
             {/* Documents */}
             {clientDetail.documents.length > 0 && (
@@ -354,19 +339,6 @@ export function ClientWorkspace() {
               </div>
             )}
 
-            {/* Advisor Notes */}
-            {client.advisor_notes && (
-              <div className="bg-card border border-border rounded-2xl p-5">
-                <div className="flex items-center gap-2 mb-3">
-                  <FileText className="h-4 w-4 text-muted-foreground" />
-                  <h3 className="text-sm font-semibold text-foreground">Advisor Notes</h3>
-                </div>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  {client.advisor_notes}
-                </p>
-              </div>
-            )}
-
             {/* Ask Shadow CTA */}
             <button
               onClick={() => setActivePanel("chat")}
@@ -383,6 +355,125 @@ export function ClientWorkspace() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+
+function RagPanel({
+  clientId,
+  entries,
+  onUpdate,
+  clientDetail,
+}: {
+  clientId: string;
+  entries: RagEntry[];
+  onUpdate: (detail: ClientDetail | null) => void;
+  clientDetail: ClientDetail;
+}) {
+  const [newEntry, setNewEntry] = useState("");
+  const [isAdding, setIsAdding] = useState(false);
+
+  const handleAdd = async () => {
+    const content = newEntry.trim();
+    if (!content) return;
+    try {
+      const created = (await api.addClientRag(clientId, content)) as unknown as RagEntry;
+      onUpdate({
+        ...clientDetail,
+        rag_entries: [...entries, created],
+      });
+      setNewEntry("");
+      setIsAdding(false);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const handleDelete = async (entryId: string) => {
+    try {
+      await api.deleteClientRag(clientId, entryId);
+      onUpdate({
+        ...clientDetail,
+        rag_entries: entries.filter((e) => e.id !== entryId),
+      });
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleAdd();
+    }
+    if (e.key === "Escape") {
+      setIsAdding(false);
+      setNewEntry("");
+    }
+  };
+
+  return (
+    <div className="bg-card border border-border rounded-2xl p-5">
+      <div className="flex items-center gap-2 mb-4">
+        <Brain className="h-4 w-4 text-primary" />
+        <h3 className="text-sm font-semibold text-foreground">Knowledge Base</h3>
+        <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full bg-accent text-muted-foreground font-medium">
+          {entries.length} {entries.length === 1 ? "entry" : "entries"}
+        </span>
+      </div>
+      <div className="space-y-1.5">
+        {entries.map((entry) => (
+          <div
+            key={entry.id}
+            className="group flex items-start gap-2 py-1.5 px-3 rounded-xl hover:bg-accent/50 transition-colors"
+          >
+            <div className="h-1.5 w-1.5 rounded-full bg-primary mt-2 shrink-0" />
+            <p className="text-sm text-foreground flex-1 leading-relaxed">{entry.content}</p>
+            <button
+              onClick={() => handleDelete(entry.id)}
+              className="opacity-0 group-hover:opacity-100 shrink-0 p-0.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        ))}
+      </div>
+      {isAdding ? (
+        <div className="mt-3 flex items-center gap-2">
+          <input
+            autoFocus
+            value={newEntry}
+            onChange={(e) => setNewEntry(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Add context about this client..."
+            className="flex-1 text-sm bg-background border border-border rounded-lg px-3 py-2
+                     placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+          />
+          <button
+            onClick={handleAdd}
+            disabled={!newEntry.trim()}
+            className="px-3 py-2 text-xs font-medium rounded-lg bg-primary text-primary-foreground
+                     hover:bg-primary/90 transition-colors disabled:opacity-30"
+          >
+            Add
+          </button>
+          <button
+            onClick={() => { setIsAdding(false); setNewEntry(""); }}
+            className="px-2 py-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={() => setIsAdding(true)}
+          className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <Plus className="h-3 w-3" />
+          Add entry
+        </button>
+      )}
     </div>
   );
 }

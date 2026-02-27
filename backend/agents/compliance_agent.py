@@ -76,6 +76,7 @@ async def run_compliance_agent(
     goals = client.get("goals", [])
     marital = client.get("marital_status", "")
     notes = client.get("advisor_notes", "")
+    rag_context = client.get("rag_context", [])
     age = _estimate_age(dob)
 
     account_lines = []
@@ -109,6 +110,8 @@ async def run_compliance_agent(
                 min_wd = acct["balance"] * rrif_pct
                 hard_facts += f"\n  RRIF balance: ${acct['balance']:,.0f}, minimum withdrawal: ${min_wd:,.0f}"
 
+    rag_lines = [f"  - {entry}" for entry in rag_context] if rag_context else ["  No knowledge base entries."]
+
     user_message = f"""ADVISOR'S QUESTION: {query}
 
 CLIENT: {name}
@@ -119,6 +122,9 @@ CLIENT: {name}
   Dependents: {dependents}
   Goals: {json.dumps(goals)}
   Advisor notes: {notes}
+
+CLIENT KNOWLEDGE BASE (advisor-curated context about this client):
+{chr(10).join(rag_lines)}
 
 ACCOUNTS (verified from database):
 {chr(10).join(account_lines)}

@@ -258,6 +258,81 @@ def seed():
     cur.execute("INSERT INTO chat_history (id, client_id, role, content, created_at) VALUES (?,?,?,?,?)",
                 (_id(), wei_id, "client", "Min and I are thinking about selling one of the Richmond properties — the market is good right now. But I'm worried about the capital gains tax. Kevin also just got married and we want to help him and Lisa with down payments. Can we look at the estate plan and figure out the most tax-efficient way to do all of this?", (datetime.now() - timedelta(days=2)).isoformat()))
 
+    # ── Client RAG entries (seeded from goals + extra context) ─────────
+    rag_entries = [
+        # Sarah Chen — goals + advisor notes
+        (sarah_id, "Buy a cottage near Lake Muskoka", "advisor"),
+        (sarah_id, "Max FHSA before first home purchase", "advisor"),
+        (sarah_id, "Build long-term wealth", "advisor"),
+        (sarah_id, "First-time home buyer — qualifies for HBP and FHSA", "advisor"),
+        (sarah_id, "Very engaged client. Asks detailed questions", "advisor"),
+        (sarah_id, "Prefers email communication", "advisor"),
+
+        # James Park — goals + advisor notes
+        (james_id, "Retire at 60", "advisor"),
+        (james_id, "Fund daughter Emily's UBC tuition via RESP", "advisor"),
+        (james_id, "Income splitting with spouse Lisa", "advisor"),
+        (james_id, "Minimize corporate tax through Park Dental Corp", "advisor"),
+        (james_id, "Self-employed dentist, incorporated as Park Dental", "advisor"),
+        (james_id, "Spouse Lisa is a homemaker", "advisor"),
+        (james_id, "Daughter Emily, age 16, starting UBC in 2 years", "advisor"),
+
+        # Priya Sharma — goals + advisor notes
+        (priya_id, "Early retirement (FIRE) target age 38", "advisor"),
+        (priya_id, "Aggressive savings rate (60%+)", "advisor"),
+        (priya_id, "Considering rental property in Edmonton", "advisor"),
+        (priya_id, "FIRE enthusiast. Very financially literate. Tracks every dollar", "advisor"),
+        (priya_id, "Prefers data-heavy analysis", "advisor"),
+
+        # Michel Tremblay — goals + advisor notes
+        (michel_id, "Minimize tax on RRIF withdrawals", "advisor"),
+        (michel_id, "Maximize OAS/GIS — watch clawback threshold", "advisor"),
+        (michel_id, "Leave inheritance for 3 grandchildren", "advisor"),
+        (michel_id, "Quebec tax rules apply (Revenu Québec)", "advisor"),
+        (michel_id, "Retired teacher. Pension from RREGOP", "advisor"),
+        (michel_id, "Wife Claudette, age 65. 3 grandchildren", "advisor"),
+        (michel_id, "Prefers French but comfortable in English", "advisor"),
+
+        # Aisha Hassan — goals + advisor notes
+        (aisha_id, "Pay off mortgage on Barrhaven home in 10 years", "advisor"),
+        (aisha_id, "Start RESP for newborn twins — maximize CESG", "advisor"),
+        (aisha_id, "Build emergency fund", "advisor"),
+        (aisha_id, "Federal government employee at CRA", "advisor"),
+        (aisha_id, "Spouse Yusuf works at DND, earns $88,000", "advisor"),
+        (aisha_id, "Newborn twins born 3 months ago", "advisor"),
+        (aisha_id, "Mortgage: $420,000 remaining at 5.2%", "advisor"),
+
+        # David Okafor — goals + advisor notes
+        (david_id, "Open 4th restaurant location on Portage Ave", "advisor"),
+        (david_id, "Corporate tax optimization", "advisor"),
+        (david_id, "Spousal RRSP contributions for income splitting", "advisor"),
+        (david_id, "Build passive income stream", "advisor"),
+        (david_id, "Restaurant chain owner (3 locations in Winnipeg)", "advisor"),
+        (david_id, "Wife Ngozi handles bookkeeping. Corporate income $280K", "advisor"),
+        (david_id, "3 kids ages 8, 11, 14", "advisor"),
+
+        # Emily Lawson — goals + advisor notes
+        (emily_id, "Pay off $28K student loan (NSLSC) at 4.5%", "advisor"),
+        (emily_id, "Build emergency fund", "advisor"),
+        (emily_id, "Start investing for long-term — new to finance", "advisor"),
+        (emily_id, "New grad, first real job", "advisor"),
+        (emily_id, "No financial literacy background but very eager to learn", "advisor"),
+        (emily_id, "Needs basics explained clearly", "advisor"),
+
+        # Wei Zhang — goals + advisor notes
+        (wei_id, "Transition rental properties to passive investments", "advisor"),
+        (wei_id, "Estate planning for adult children Kevin (28) and Lisa (25) in Toronto", "advisor"),
+        (wei_id, "Lifetime capital gains exemption planning", "advisor"),
+        (wei_id, "3 rental properties in Richmond BC — considering partial sale", "advisor"),
+        (wei_id, "Complex client. Import/export business via holding company", "advisor"),
+        (wei_id, "Wife Min, age 53. Estate planning priority", "advisor"),
+    ]
+    for client_id, content, source in rag_entries:
+        cur.execute(
+            "INSERT INTO client_rag (id, client_id, content, source, created_at) VALUES (?,?,?,?,?)",
+            (_id(), client_id, content, source, now),
+        )
+
     # ── Proactive Alerts (pre-seeded) ───────────────────────────────────
     cur.execute(
         "INSERT INTO alerts (id, client_id, alert_type, title, description, drafted_action, status, created_at) VALUES (?,?,?,?,?,?,?,?)",

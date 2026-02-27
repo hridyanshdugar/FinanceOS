@@ -34,4 +34,15 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ task_id: taskId, action, note, edited_content: editedContent }),
     }),
+  getClientRag: (clientId: string) =>
+    fetchJSON<Record<string, unknown>[]>(`/api/clients/${clientId}/rag`),
+  addClientRag: (clientId: string, content: string) =>
+    fetchJSON<Record<string, unknown>>(`/api/clients/${clientId}/rag`, {
+      method: "POST",
+      body: JSON.stringify({ content }),
+    }),
+  deleteClientRag: (clientId: string, entryId: string) =>
+    fetchJSON<Record<string, unknown>>(`/api/clients/${clientId}/rag/${entryId}`, {
+      method: "DELETE",
+    }),
 };

@@ -60,6 +60,7 @@ async def run_quant_agent(
     marital = client.get("marital_status", "")
     notes = client.get("advisor_notes", "")
     dob = client.get("date_of_birth", "")
+    rag_context = client.get("rag_context", [])
 
     account_lines = []
     for acct in accounts:
@@ -76,6 +77,8 @@ async def run_quant_agent(
     for msg in reversed(recent_chat[:8]):
         chat_lines.append(f"  [{msg['role']}]: {msg['content'][:200]}")
 
+    rag_lines = [f"  - {entry}" for entry in rag_context] if rag_context else ["  No knowledge base entries."]
+
     user_message = f"""ADVISOR'S QUESTION: {query}
 
 CLIENT PROFILE:
@@ -88,6 +91,9 @@ CLIENT PROFILE:
   Dependents: {dependents}
   Goals: {json.dumps(goals)}
   Advisor notes: {notes}
+
+CLIENT KNOWLEDGE BASE (advisor-curated context about this client):
+{chr(10).join(rag_lines)}
 
 ACCOUNTS (verified balances from database):
 {chr(10).join(account_lines) if account_lines else '  No accounts on file.'}

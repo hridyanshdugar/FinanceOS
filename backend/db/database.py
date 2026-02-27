@@ -35,3 +35,37 @@ def dict_from_row(row: Optional[sqlite3.Row]) -> Optional[dict]:
 
 def dicts_from_rows(rows: List[sqlite3.Row]) -> List[dict]:
     return [dict(r) for r in rows]
+
+
+# ── Client RAG helpers ───────────────────────────────────────────────
+
+def get_client_rag(client_id: str) -> List[dict]:
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT * FROM client_rag WHERE client_id = ? ORDER BY created_at ASC",
+        (client_id,),
+    ).fetchall()
+    conn.close()
+    return dicts_from_rows(rows)
+
+
+def add_client_rag(client_id: str, content: str, source: str = "advisor") -> dict:
+    import uuid
+    entry_id = str(uuid.uuid4())
+    conn = get_connection()
+    conn.execute(
+        "INSERT INTO client_rag (id, client_id, content, source, created_at) VALUES (?,?,?,?,datetime('now'))",
+        (entry_id, client_id, content, source),
+    )
+    conn.commit()
+    row = conn.execute("SELECT * FROM client_rag WHERE id = ?", (entry_id,)).fetchone()
+    conn.close()
+    return dict(row)
+
+
+def delete_client_rag(entry_id: str) -> bool:
+    conn = get_connection()
+    cur = conn.execute("DELETE FROM client_rag WHERE id = ?", (entry_id,))
+    conn.commit()
+    conn.close()
+    return cur.rowcount > 0
