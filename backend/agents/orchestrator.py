@@ -1,5 +1,5 @@
 """
-Multi-agent orchestrator for WS Shadow.
+Multi-agent orchestrator for FinanceOS.
 Routes advisor queries to specialized agents and aggregates results
 into the Tri-Tiered Output format.
 """
@@ -32,14 +32,12 @@ async def handle_chat_message(ws: WebSocket, message: dict):
 
     conn = get_connection()
 
-    # Save advisor message to chat history
     conn.execute(
         "INSERT INTO chat_history (id, client_id, role, content, created_at) VALUES (?, ?, ?, ?, ?)",
         (str(uuid.uuid4()), client_id, "advisor", content, datetime.now().isoformat()),
     )
     conn.commit()
 
-    # Fetch client context
     client_row = conn.execute("SELECT * FROM clients WHERE id = ?", (client_id,)).fetchone()
     if not client_row:
         conn.close()
@@ -62,13 +60,17 @@ async def handle_chat_message(ws: WebSocket, message: dict):
         ).fetchall()
     )
 
-    # Notify: thinking
-    await send_to(ws, {"type": "thinking"})
+    await send_to(ws, {"type": "thinking", "payload": {"step": "Starting analysis..."}})
 
-    # Dispatch agents
     context_task_id = str(uuid.uuid4())
     quant_task_id = str(uuid.uuid4())
     compliance_task_id = str(uuid.uuid4())
+
+    agent_descriptions = {
+        "context": f"Reading {client['name']}'s profile, goals, documents, and conversation history",
+        "quant": f"Running financial calculations on {client['name']}'s accounts and tax situation",
+        "compliance": f"Checking CRA rules, CIRO suitability, and regulatory limits for {client['name']}",
+    }
 
     for tid, agent_name in [
         (context_task_id, "context"),
@@ -80,7 +82,7 @@ async def handle_chat_message(ws: WebSocket, message: dict):
             "agent": agent_name,
             "client_id": client_id,
             "task_id": tid,
-            "payload": {},
+            "payload": {"description": agent_descriptions[agent_name]},
         })
         conn.execute(
             "INSERT INTO agent_tasks (id, client_id, agent_type, status, input_data, created_at) VALUES (?,?,?,?,?,?)",
@@ -88,7 +90,6 @@ async def handle_chat_message(ws: WebSocket, message: dict):
         )
     conn.commit()
 
-    # Run agents in parallel
     from agents.context_agent import run_context_agent
     from agents.quant_agent import run_quant_agent
     from agents.compliance_agent import run_compliance_agent
@@ -97,12 +98,13 @@ async def handle_chat_message(ws: WebSocket, message: dict):
         _run_agent_with_updates(ws, context_task_id, "context", client_id,
                                 run_context_agent, client, accounts, documents, recent_chat, content, conn),
         _run_agent_with_updates(ws, quant_task_id, "quant", client_id,
-                                run_quant_agent, client, accounts, content, conn),
+                                run_quant_agent, client, accounts, documents, recent_chat, content, conn),
         _run_agent_with_updates(ws, compliance_task_id, "compliance", client_id,
-                                run_compliance_agent, client, accounts, content, conn),
+                                run_compliance_agent, client, accounts, documents, recent_chat, content, conn),
     )
 
-    # Format Tri-Tiered Output
+    await send_to(ws, {"type": "thinking", "payload": {"step": "Synthesizing results..."}})
+
     tri_tiered = {
         "numbers": quant_result or {
             "summary": "No calculations needed for this query.",
@@ -129,22 +131,13 @@ async def handle_chat_message(ws: WebSocket, message: dict):
         },
     }
 
-    # Build summary response
-    summary_parts = []
-    if quant_result and quant_result.get("summary"):
-        summary_parts.append(quant_result["summary"])
-    if context_result and context_result.get("summary"):
-        summary_parts.append(context_result["summary"])
+    summary = await _synthesize_summary(client, content, context_result, quant_result, compliance_result)
 
-    summary = " ".join(summary_parts) if summary_parts else "I've looked into this for you. Here's what I found."
-
-    # Save response to chat history
     conn.execute(
         "INSERT INTO chat_history (id, client_id, role, content, created_at) VALUES (?, ?, ?, ?, ?)",
         (str(uuid.uuid4()), client_id, "system", summary, datetime.now().isoformat()),
     )
 
-    # Save master task
     conn.execute(
         "INSERT INTO agent_tasks (id, client_id, agent_type, status, input_data, output_data, created_at, completed_at) VALUES (?,?,?,?,?,?,?,?)",
         (task_id, client_id, "orchestrator", "completed",
@@ -154,7 +147,6 @@ async def handle_chat_message(ws: WebSocket, message: dict):
     conn.commit()
     conn.close()
 
-    # Send chat response
     await send_to(ws, {
         "type": "chat_response",
         "client_id": client_id,
@@ -165,13 +157,52 @@ async def handle_chat_message(ws: WebSocket, message: dict):
         },
     })
 
-    # Send tri-tiered output to open the artifact panel
     await send_to(ws, {
         "type": "tri_tiered_output",
         "client_id": client_id,
         "task_id": task_id,
         "payload": tri_tiered,
     })
+
+
+async def _synthesize_summary(
+    client: dict, query: str,
+    context_result: Optional[dict],
+    quant_result: Optional[dict],
+    compliance_result: Optional[dict],
+) -> str:
+    """Use Claude to synthesize agent results into a conversational summary for the advisor."""
+    try:
+        from services.llm import call_claude
+
+        parts = []
+        if quant_result and quant_result.get("summary"):
+            parts.append(f"QUANT ANALYSIS: {quant_result['summary']}")
+        if context_result and context_result.get("summary"):
+            parts.append(f"CLIENT CONTEXT: {context_result['summary']}")
+        if compliance_result:
+            status = compliance_result.get("status", "clear")
+            items_text = "; ".join(i.get("message", "") for i in compliance_result.get("items", [])[:3])
+            parts.append(f"COMPLIANCE ({status}): {items_text}" if items_text else f"COMPLIANCE: {status}")
+
+        if not parts:
+            return "I've looked into this for you. Here's what I found — open the full analysis for details."
+
+        system = (
+            "You are a concise AI assistant summarizing financial analysis for a wealth advisor. "
+            "Write 2-3 sentences that capture the key insight from the agent results below. "
+            "Be specific with numbers. Speak directly to the advisor. "
+            "Do NOT include greetings. End with a prompt to open the full analysis panel."
+        )
+        user_msg = f"Advisor asked about client {client['name']}: \"{query}\"\n\n" + "\n".join(parts)
+        return await call_claude(system, user_msg, max_tokens=256, temperature=0.3)
+    except Exception:
+        summary_parts = []
+        if quant_result and quant_result.get("summary"):
+            summary_parts.append(quant_result["summary"])
+        if context_result and context_result.get("summary"):
+            summary_parts.append(context_result["summary"])
+        return " ".join(summary_parts) if summary_parts else "I've looked into this for you. Here's what I found."
 
 
 async def _run_agent_with_updates(

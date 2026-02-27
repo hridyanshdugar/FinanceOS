@@ -21,7 +21,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="WS Shadow API", lifespan=lifespan)
+app = FastAPI(title="FinanceOS API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -39,4 +39,4 @@ app.include_router(ws_router)
 
 @app.get("/")
 async def root():
-    return {"app": "WS Shadow", "status": "running"}
+    return {"app": "FinanceOS", "status": "running"}

@@ -81,6 +81,9 @@ def seed():
     cur.execute("INSERT INTO documents (id, client_id, type, content_text, tax_year, uploaded_at) VALUES (?,?,?,?,?,?)",
                 (_id(), james_id, "T2", "Corporate net income: $220,000. Small business deduction applied. Corporate tax payable: $27,500.", 2024, now))
 
+    cur.execute("INSERT INTO chat_history (id, client_id, role, content, created_at) VALUES (?,?,?,?,?)",
+                (_id(), james_id, "client", "Emily got her UBC acceptance letter! We need to start planning how to withdraw from the RESP. Also, I've been thinking about whether I should take a bigger salary or keep paying myself in dividends. Can we review the corporate structure?", (datetime.now() - timedelta(days=3)).isoformat()))
+
     # ── Client 3: Priya Sharma ──────────────────────────────────────────
     priya_id = _id()
     cur.execute(
@@ -107,6 +110,9 @@ def seed():
     cur.execute("INSERT INTO documents (id, client_id, type, content_text, tax_year, uploaded_at) VALUES (?,?,?,?,?,?)",
                 (_id(), priya_id, "T5", "Investment income: $4,200 (dividends: $2,800, interest: $1,400). Capital gains realized: $8,500.", 2024, now))
 
+    cur.execute("INSERT INTO chat_history (id, client_id, role, content, created_at) VALUES (?,?,?,?,?)",
+                (_id(), priya_id, "client", "I've been running the numbers and I think I can hit my FIRE target by 38 if I max out my RRSP this year. But I'm also looking at a rental property in Edmonton — would the down payment be better than the RRSP contribution? I need the math on this.", (datetime.now() - timedelta(days=4)).isoformat()))
+
     # ── Client 4: Michel Tremblay ───────────────────────────────────────
     michel_id = _id()
     cur.execute(
@@ -132,6 +138,9 @@ def seed():
                 (_id(), michel_id, "T4A", "RREGOP pension income: $52,000/year. Quebec pension plan.", 2024, now))
     cur.execute("INSERT INTO documents (id, client_id, type, content_text, tax_year, uploaded_at) VALUES (?,?,?,?,?,?)",
                 (_id(), michel_id, "T4RIF", "RRIF withdrawals: $18,200 (minimum withdrawal for age 66). Withholding tax: $3,640.", 2024, now))
+
+    cur.execute("INSERT INTO chat_history (id, client_id, role, content, created_at) VALUES (?,?,?,?,?)",
+                (_id(), michel_id, "client", "Claudette and I want to make sure we're not paying more tax than we need to on the RRIF withdrawals. Also, we'd like to start gifting money to the grandchildren — is there a tax-smart way to do that? Maybe through the TFSA?", (datetime.now() - timedelta(days=6)).isoformat()))
 
     # ── Client 5: Aisha Hassan ──────────────────────────────────────────
     aisha_id = _id()
@@ -186,6 +195,9 @@ def seed():
                 (_id(), david_id, "T2", "Okafor Restaurants Inc. Net corporate income: $280,000. Active business income eligible for SBD. Corporate tax: $35,000.", 2024, now))
     cur.execute("INSERT INTO documents (id, client_id, type, content_text, tax_year, uploaded_at) VALUES (?,?,?,?,?,?)",
                 (_id(), david_id, "T5", "Eligible dividends paid: $85,000. Non-eligible dividends: $42,000.", 2024, now))
+
+    cur.execute("INSERT INTO chat_history (id, client_id, role, content, created_at) VALUES (?,?,?,?,?)",
+                (_id(), david_id, "client", "I found a great location on Portage Ave for the 4th restaurant. The lease would be $8,500/month. I'm trying to figure out if I should finance this through the corporation or personally. Also, Ngozi and I want to start putting money aside for the kids' education — we've never opened an RESP.", (datetime.now() - timedelta(days=1)).isoformat()))
 
     # ── Client 7: Emily Lawson ──────────────────────────────────────────
     emily_id = _id()
@@ -242,6 +254,9 @@ def seed():
                 (_id(), wei_id, "T776", "Rental income: 3 properties in Richmond BC. Gross rental: $84,000. Net rental after expenses: $31,000.", 2024, now))
     cur.execute("INSERT INTO documents (id, client_id, type, content_text, tax_year, uploaded_at) VALUES (?,?,?,?,?,?)",
                 (_id(), wei_id, "T2", "Zhang Holdings Corp. Net income: $420,000. Passive investment income: $180,000. Active business income: $240,000.", 2024, now))
+
+    cur.execute("INSERT INTO chat_history (id, client_id, role, content, created_at) VALUES (?,?,?,?,?)",
+                (_id(), wei_id, "client", "Min and I are thinking about selling one of the Richmond properties — the market is good right now. But I'm worried about the capital gains tax. Kevin also just got married and we want to help him and Lisa with down payments. Can we look at the estate plan and figure out the most tax-efficient way to do all of this?", (datetime.now() - timedelta(days=2)).isoformat()))
 
     # ── Proactive Alerts (pre-seeded) ───────────────────────────────────
     cur.execute(

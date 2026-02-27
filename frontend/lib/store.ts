@@ -8,6 +8,8 @@ import type {
   ClientDetail,
 } from "./types";
 
+type ActivePanel = "overview" | "chat" | null;
+
 interface AppState {
   clients: Client[];
   setClients: (clients: Client[]) => void;
@@ -43,8 +45,18 @@ interface AppState {
   isThinking: boolean;
   setIsThinking: (thinking: boolean) => void;
 
+  thinkingStep: string;
+  setThinkingStep: (step: string) => void;
+
+  thinkingAgents: Record<string, { status: string; description: string }>;
+  setThinkingAgent: (agent: string, status: string, description?: string) => void;
+  clearThinkingAgents: () => void;
+
   wsConnected: boolean;
   setWsConnected: (connected: boolean) => void;
+
+  activePanel: ActivePanel;
+  setActivePanel: (panel: ActivePanel) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -53,7 +65,13 @@ export const useAppStore = create<AppState>((set) => ({
 
   selectedClientId: null,
   setSelectedClientId: (id) =>
-    set({ selectedClientId: id, conversation: [], artifactOpen: false, currentAnalysis: null }),
+    set({
+      selectedClientId: id,
+      conversation: [],
+      artifactOpen: false,
+      currentAnalysis: null,
+      activePanel: id ? "overview" : null,
+    }),
 
   clientDetail: null,
   setClientDetail: (detail) => set({ clientDetail: detail }),
@@ -87,8 +105,27 @@ export const useAppStore = create<AppState>((set) => ({
   setCurrentTaskId: (id) => set({ currentTaskId: id }),
 
   isThinking: false,
-  setIsThinking: (thinking) => set({ isThinking: thinking }),
+  setIsThinking: (thinking) => set((s) => ({
+    isThinking: thinking,
+    ...(thinking ? {} : { thinkingAgents: {}, thinkingStep: "" }),
+  })),
+
+  thinkingStep: "",
+  setThinkingStep: (step) => set({ thinkingStep: step }),
+
+  thinkingAgents: {},
+  setThinkingAgent: (agent, status, description) =>
+    set((s) => ({
+      thinkingAgents: {
+        ...s.thinkingAgents,
+        [agent]: { status, description: description || s.thinkingAgents[agent]?.description || "" },
+      },
+    })),
+  clearThinkingAgents: () => set({ thinkingAgents: {}, thinkingStep: "" }),
 
   wsConnected: false,
   setWsConnected: (connected) => set({ wsConnected: connected }),
+
+  activePanel: null,
+  setActivePanel: (panel) => set({ activePanel: panel }),
 }));

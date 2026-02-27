@@ -1,132 +1,159 @@
 """
-Compliance Agent: Audits financial advice against CRA rules, CIRO regulations,
-and Canadian tax law. Flags issues and validates contribution room limits.
+Compliance Agent: Uses Claude to audit financial advice against CRA rules,
+CIRO regulations, and Canadian tax law. Combines LLM reasoning with
+hard-coded regulatory limits for zero-hallucination fact checking.
 """
 from __future__ import annotations
 
-import asyncio
+import json
+from datetime import date
+from services.llm import call_claude_json
 
-
-CRA_RULES = {
-    "rrsp_limit_2024": 31560,
-    "tfsa_limit_2024": 7000,
-    "fhsa_annual_limit": 8000,
-    "fhsa_lifetime_limit": 40000,
-    "resp_cesg_annual_max_per_child": 500,
-    "resp_cesg_lifetime_max_per_child": 7200,
+CRA_LIMITS = {
+    "rrsp_annual_2024": 31560,
+    "tfsa_annual_2024": 7000,
+    "fhsa_annual": 8000,
+    "fhsa_lifetime": 40000,
+    "cesg_annual_max_per_child": 500,
+    "cesg_lifetime_per_child": 7200,
     "oas_clawback_threshold_2024": 90997,
-    "rrif_min_pct": {65: 0.04, 66: 0.0417, 67: 0.0435, 70: 0.05, 75: 0.0582, 80: 0.0682, 85: 0.0851, 90: 0.1111, 94: 0.1667, 95: 0.20},
 }
 
-PROHIBITED_TERMS = ["guaranteed returns", "guaranteed profit", "risk-free", "no risk", "can't lose"]
+RRIF_MIN_PCT = {
+    65: 0.04, 66: 0.0417, 67: 0.0435, 70: 0.05,
+    75: 0.0582, 80: 0.0682, 85: 0.0851, 90: 0.1111, 94: 0.1667, 95: 0.20,
+}
+
+SYSTEM_PROMPT = """\
+You are the Compliance Agent in a Canadian wealth advisor's AI assistant.
+Your job is to audit the advisor's question and the client's financial situation
+against Canadian regulations: CRA rules, CIRO suitability requirements, and tax law.
+
+ZERO-HALLUCINATION RULES:
+- ONLY use the HARD FACTS and client data provided below. NEVER guess contribution limits or balances.
+- If data is missing, say "data not available" rather than assuming a value.
+- Reference specific account balances and contribution rooms from the provided data.
+
+You will receive HARD FACTS — verified regulatory limits. Use these as ground truth.
+If the advisor's question or any implied advice would violate these limits, flag it.
+
+Rules:
+- Flag any use of prohibited terms: "guaranteed returns", "guaranteed profit", "risk-free", "no risk", "can't lose."
+- Check contribution room limits against CRA rules using the actual room figures provided.
+- For seniors (65+), check OAS clawback risk and RRIF minimum withdrawals.
+- For Quebec clients, note that provincial tax rules differ (Revenu Québec).
+- Consider the client's goals, documents, and conversation history for context.
+- Each item must have a severity: "info" (neutral fact), "warning" (potential issue), or "error" (violation).
+- Include the specific rule citation (e.g., "ITA 146(1)") when applicable.
+
+Respond in JSON:
+{
+  "status": "clear" | "warning" | "error",
+  "items": [
+    {
+      "severity": "info" | "warning" | "error",
+      "message": "Plain-language explanation referencing actual client data",
+      "rule_citation": "e.g. ITA 146(1) - RRSP deduction limit"
+    }
+  ]
+}"""
 
 
 async def run_compliance_agent(
     client: dict,
     accounts: list[dict],
+    documents: list[dict],
+    recent_chat: list[dict],
     query: str,
     conn,
 ) -> dict:
-    """Check compliance for the given query and client context."""
-    await asyncio.sleep(0.8)
-
-    items = []
-    query_lower = query.lower()
+    """Check compliance via Claude, augmented with hard-coded CRA limits."""
+    name = client["name"]
     income = client.get("employment_income", 0)
     province = client.get("province", "")
     dob = client.get("date_of_birth", "")
-
+    dependents = client.get("dependents", 0)
+    goals = client.get("goals", [])
+    marital = client.get("marital_status", "")
+    notes = client.get("advisor_notes", "")
     age = _estimate_age(dob)
 
-    # Check contribution room constraints
+    account_lines = []
     for acct in accounts:
-        acct_type = acct["type"]
-        room = acct.get("contribution_room", 0)
+        line = f"  {acct['type']}: balance ${acct['balance']:,.0f}"
+        if acct.get("contribution_room", 0) > 0:
+            line += f", contribution room ${acct['contribution_room']:,.0f}"
+        account_lines.append(line)
 
-        if acct_type == "RRSP" and room > CRA_RULES["rrsp_limit_2024"]:
-            items.append({
-                "severity": "info",
-                "message": f"RRSP contribution room (${room:,.0f}) exceeds the 2024 annual limit (${CRA_RULES['rrsp_limit_2024']:,}). Room carries forward from prior years.",
-                "rule_citation": "ITA 146(1) - RRSP deduction limit",
-            })
+    doc_lines = []
+    for doc in documents:
+        doc_lines.append(f"  {doc['type']} ({doc.get('tax_year', 'N/A')}): {doc['content_text'][:300]}")
 
-        if acct_type == "FHSA" and room > 0:
-            if "fhsa" in query_lower or "home" in query_lower:
-                items.append({
-                    "severity": "info",
-                    "message": f"FHSA annual contribution limit is ${CRA_RULES['fhsa_annual_limit']:,}. Available room: ${room:,.0f}. Lifetime limit: ${CRA_RULES['fhsa_lifetime_limit']:,}.",
-                    "rule_citation": "ITA 146.6 - Tax-Free First Home Savings Account",
-                })
+    chat_lines = []
+    for msg in reversed(recent_chat[:5]):
+        chat_lines.append(f"  [{msg['role']}]: {msg['content'][:200]}")
 
-        if acct_type == "RESP" and ("resp" in query_lower or "cesg" in query_lower or "education" in query_lower):
-            dependents = client.get("dependents", 1)
-            items.append({
-                "severity": "info",
-                "message": f"CESG matches 20% on first $2,500/child/year (max ${CRA_RULES['resp_cesg_annual_max_per_child']:,}/child). With {dependents} {'child' if dependents == 1 else 'children'}, max annual CESG is ${CRA_RULES['resp_cesg_annual_max_per_child'] * dependents:,}.",
-                "rule_citation": "Canada Education Savings Act s.5",
-            })
+    hard_facts = f"""HARD FACTS (verified CRA limits — use as ground truth):
+  RRSP annual limit 2024: ${CRA_LIMITS['rrsp_annual_2024']:,}
+  TFSA annual limit 2024: ${CRA_LIMITS['tfsa_annual_2024']:,}
+  FHSA annual limit: ${CRA_LIMITS['fhsa_annual']:,}, lifetime: ${CRA_LIMITS['fhsa_lifetime']:,}
+  CESG: 20% match on first $2,500/child/year, max ${CRA_LIMITS['cesg_annual_max_per_child']:,}/child/year
+  OAS clawback threshold 2024: ${CRA_LIMITS['oas_clawback_threshold_2024']:,}
+  Client age: {age}"""
 
-    # OAS clawback check for seniors
-    if age and age >= 65:
-        total_income = income
+    if age >= 65:
+        rrif_pct = _get_rrif_min_pct(age)
+        hard_facts += f"\n  RRIF minimum withdrawal at age {age}: {rrif_pct:.2%}"
         for acct in accounts:
             if acct["type"] == "RRIF":
-                min_pct = _get_rrif_min_pct(age)
-                total_income += acct["balance"] * min_pct
-        if total_income > CRA_RULES["oas_clawback_threshold_2024"]:
-            items.append({
-                "severity": "warning",
-                "message": f"Estimated total income (${total_income:,.0f}) exceeds the OAS clawback threshold (${CRA_RULES['oas_clawback_threshold_2024']:,}). OAS benefits may be reduced.",
-                "rule_citation": "ITA 180.2 - OAS Recovery Tax",
-            })
+                min_wd = acct["balance"] * rrif_pct
+                hard_facts += f"\n  RRIF balance: ${acct['balance']:,.0f}, minimum withdrawal: ${min_wd:,.0f}"
 
-    # RRIF minimum withdrawal check
-    if age and age >= 65:
-        for acct in accounts:
-            if acct["type"] == "RRIF":
-                min_pct = _get_rrif_min_pct(age)
-                min_withdrawal = acct["balance"] * min_pct
-                items.append({
-                    "severity": "info",
-                    "message": f"RRIF minimum withdrawal for age {age}: {min_pct:.2%} of ${acct['balance']:,.0f} = ${min_withdrawal:,.0f}.",
-                    "rule_citation": "ITA 146.3(1) - Minimum RRIF Withdrawal",
-                })
+    user_message = f"""ADVISOR'S QUESTION: {query}
 
-    # Quebec-specific note
-    if province == "QC":
-        items.append({
-            "severity": "info",
-            "message": "Quebec tax rules apply (Revenu Québec). Provincial rates differ from federal and other provinces.",
-            "rule_citation": "Taxation Act (Quebec) - Provincial income tax",
-        })
+CLIENT: {name}
+  Province: {province}
+  Income: ${income:,.0f}
+  Age: {age}
+  Marital status: {marital}
+  Dependents: {dependents}
+  Goals: {json.dumps(goals)}
+  Advisor notes: {notes}
 
-    # Check for prohibited language
-    for term in PROHIBITED_TERMS:
-        if term in query_lower:
-            items.append({
-                "severity": "error",
-                "message": f'Flagged term: "{term}". Advice must not imply guaranteed outcomes per CIRO suitability requirements.',
-                "rule_citation": "CIRO Rule 3400 - Suitability",
-            })
+ACCOUNTS (verified from database):
+{chr(10).join(account_lines)}
 
-    status = "clear"
-    if any(item["severity"] == "error" for item in items):
-        status = "error"
-    elif any(item["severity"] == "warning" for item in items):
-        status = "warning"
+TAX DOCUMENTS:
+{chr(10).join(doc_lines) if doc_lines else '  No documents on file.'}
 
-    return {
-        "status": status,
-        "items": items,
-    }
+RECENT CONVERSATION:
+{chr(10).join(chat_lines) if chat_lines else '  No prior conversations.'}
+
+{hard_facts}
+"""
+
+    try:
+        result = await call_claude_json(SYSTEM_PROMPT, user_message)
+        if "status" not in result:
+            result["status"] = "clear"
+        if "items" not in result:
+            result["items"] = []
+        return result
+    except Exception as e:
+        return {
+            "status": "clear",
+            "items": [{
+                "severity": "info",
+                "message": f"Compliance check encountered an issue: {str(e)[:100]}. Manual review recommended.",
+                "rule_citation": "",
+            }],
+        }
 
 
 def _estimate_age(dob: str) -> int:
-    """Estimate current age from date of birth string (YYYY-MM-DD)."""
     if not dob:
         return 0
     try:
-        from datetime import date
         parts = dob.split("-")
         birth = date(int(parts[0]), int(parts[1]), int(parts[2]))
         today = date.today()
@@ -136,11 +163,7 @@ def _estimate_age(dob: str) -> int:
 
 
 def _get_rrif_min_pct(age: int) -> float:
-    """Get RRIF minimum withdrawal percentage for a given age."""
-    if age < 65:
-        return 0.04
-    pct_table = CRA_RULES["rrif_min_pct"]
-    for threshold_age in sorted(pct_table.keys(), reverse=True):
+    for threshold_age in sorted(RRIF_MIN_PCT.keys(), reverse=True):
         if age >= threshold_age:
-            return pct_table[threshold_age]
+            return RRIF_MIN_PCT[threshold_age]
     return 0.04

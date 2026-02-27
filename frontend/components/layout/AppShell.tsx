@@ -4,7 +4,6 @@ import { createContext, useContext, useEffect } from "react";
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { MainArea } from "@/components/conversation/MainArea";
 import { ArtifactPanel } from "@/components/artifact/ArtifactPanel";
-import { ProactiveToast } from "@/components/alerts/ProactiveToast";
 import { useAppStore } from "@/lib/store";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { api } from "@/lib/api";
@@ -31,7 +30,6 @@ export function AppShell() {
           <MainArea />
           {artifactOpen && <ArtifactPanel />}
         </main>
-        <ProactiveToast />
       </div>
     </WsSendContext.Provider>
   );

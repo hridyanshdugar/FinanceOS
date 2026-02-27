@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "WS Shadow",
+  title: "FinanceOS",
   description: "AI-native workspace for wealth advisors",
 };
 

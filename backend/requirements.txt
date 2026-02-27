@@ -3,3 +3,6 @@ hypercorn==0.17.3
 uvicorn==0.32.0
 pydantic==2.9.0
 websockets==13.0
+anthropic>=0.40.0
+openai>=1.50.0
+python-dotenv>=1.0.0

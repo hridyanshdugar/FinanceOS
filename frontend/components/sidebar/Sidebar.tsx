@@ -24,7 +24,7 @@ export function Sidebar() {
           className="text-left"
         >
           <h1 className="text-lg font-semibold tracking-tight text-foreground">
-            WS Shadow
+            FinanceOS
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">Alex&apos;s workspace</p>
         </button>

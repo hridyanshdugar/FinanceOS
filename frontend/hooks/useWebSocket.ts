@@ -14,8 +14,9 @@ export function useWebSocket() {
     addAgentTask,
     updateAgentTask,
     addMessage,
-    updateMessage,
     setIsThinking,
+    setThinkingStep,
+    setThinkingAgent,
     setCurrentAnalysis,
     setCurrentTaskId,
     setArtifactOpen,
@@ -63,6 +64,7 @@ export function useWebSocket() {
 
     switch (type) {
       case "agent_dispatch": {
+        const description = (payload.description as string) || "";
         addAgentTask({
           id: msg.task_id as string,
           client_id: msg.client_id as string,
@@ -75,6 +77,7 @@ export function useWebSocket() {
           created_at: new Date().toISOString(),
           completed_at: null,
         });
+        setThinkingAgent(msg.agent as string, "running", description);
         break;
       }
       case "agent_update": {
@@ -82,6 +85,7 @@ export function useWebSocket() {
           status: "running",
           output_data: payload,
         });
+        setThinkingAgent(msg.agent as string, "running");
         break;
       }
       case "agent_complete": {
@@ -90,6 +94,7 @@ export function useWebSocket() {
           output_data: payload,
           completed_at: new Date().toISOString(),
         });
+        setThinkingAgent(msg.agent as string, "completed");
         break;
       }
       case "chat_response": {
@@ -116,6 +121,9 @@ export function useWebSocket() {
       }
       case "thinking": {
         setIsThinking(true);
+        if (payload.step) {
+          setThinkingStep(payload.step as string);
+        }
         break;
       }
       case "alert_new": {
