@@ -1,0 +1,28 @@
+"use client";
+
+import { useEffect } from "react";
+import { Sidebar } from "@/components/sidebar/Sidebar";
+import { MainArea } from "@/components/conversation/MainArea";
+import { ArtifactPanel } from "@/components/artifact/ArtifactPanel";
+import { useAppStore } from "@/lib/store";
+import { api } from "@/lib/api";
+import type { Client, Alert } from "@/lib/types";
+
+export function AppShell() {
+  const { setClients, setAlerts, artifactOpen } = useAppStore();
+
+  useEffect(() => {
+    api.getClients().then((data) => setClients(data as unknown as Client[]));
+    api.getAlerts().then((data) => setAlerts(data as unknown as Alert[]));
+  }, [setClients, setAlerts]);
+
+  return (
+    <div className="flex h-screen w-screen overflow-hidden bg-background">
+      <Sidebar />
+      <main className="flex-1 flex min-w-0">
+        <MainArea />
+        {artifactOpen && <ArtifactPanel />}
+      </main>
+    </div>
+  );
+}
