@@ -51,14 +51,28 @@ export function Sidebar() {
         <p className="px-3 py-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
           Clients
         </p>
-        {filtered.map((client) => (
-          <ClientRow
-            key={client.id}
-            client={client}
-            isActive={client.id === selectedClientId}
-            onClick={() => setSelectedClientId(client.id)}
-          />
-        ))}
+        {clients.length === 0 ? (
+          <div className="space-y-2 px-2">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="flex items-center gap-3 p-2">
+                <div className="h-8 w-8 rounded-xl animate-shimmer shrink-0" />
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-3.5 w-24 rounded animate-shimmer" />
+                  <div className="h-2.5 w-16 rounded animate-shimmer" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          filtered.map((client) => (
+            <ClientRow
+              key={client.id}
+              client={client}
+              isActive={client.id === selectedClientId}
+              onClick={() => setSelectedClientId(client.id)}
+            />
+          ))
+        )}
       </div>
 
       {/* Working On */}

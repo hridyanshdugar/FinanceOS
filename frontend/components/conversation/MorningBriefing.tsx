@@ -29,6 +29,7 @@ function getGreeting(): string {
 export function MorningBriefing() {
   const { alerts, clients, setSelectedClientId } = useAppStore();
   const pendingAlerts = alerts.filter((a) => a.status === "pending");
+  const isLoading = clients.length === 0;
 
   const totalClients = clients.length;
   const totalPortfolio = clients.reduce(
@@ -36,6 +37,28 @@ export function MorningBriefing() {
     0
   );
   const totalAlerts = pendingAlerts.length;
+
+  if (isLoading) {
+    return (
+      <div className="flex-1 overflow-y-auto">
+        <div className="p-6 max-w-6xl mx-auto space-y-6">
+          <div>
+            <div className="h-7 w-56 rounded-lg animate-shimmer" />
+            <div className="h-4 w-72 rounded-lg animate-shimmer mt-3" />
+          </div>
+          <div className="grid grid-cols-4 gap-3">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-20 rounded-2xl animate-shimmer" />
+            ))}
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="col-span-2 h-48 rounded-2xl animate-shimmer" />
+            <div className="h-48 rounded-2xl animate-shimmer" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 overflow-y-auto">

@@ -49,11 +49,36 @@ export function ClientWorkspace() {
 
   if (!clientDetail) {
     return (
-      <div className="flex-1 p-6">
-        <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-24 rounded-2xl animate-shimmer" />
-          ))}
+      <div className="flex-1 overflow-y-auto">
+        <div className="p-6 max-w-6xl mx-auto space-y-6">
+          {/* Header skeleton */}
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-3">
+              <div className="h-12 w-12 rounded-2xl animate-shimmer" />
+              <div>
+                <div className="h-5 w-40 rounded-lg animate-shimmer" />
+                <div className="h-3 w-56 rounded-lg animate-shimmer mt-2" />
+              </div>
+            </div>
+            <div className="h-10 w-32 rounded-xl animate-shimmer" />
+          </div>
+          {/* Stats skeleton */}
+          <div className="grid grid-cols-4 gap-3">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-20 rounded-2xl animate-shimmer" />
+            ))}
+          </div>
+          {/* Content skeleton */}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="col-span-2 space-y-4">
+              <div className="h-48 rounded-2xl animate-shimmer" />
+              <div className="h-32 rounded-2xl animate-shimmer" />
+            </div>
+            <div className="space-y-4">
+              <div className="h-36 rounded-2xl animate-shimmer" />
+              <div className="h-28 rounded-2xl animate-shimmer" />
+            </div>
+          </div>
         </div>
       </div>
     );
