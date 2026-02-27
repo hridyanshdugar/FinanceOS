@@ -15,7 +15,7 @@ const ACTION_SUGGESTIONS = [
 ];
 
 export function useSendMessage() {
-  const { selectedClientId, clientDetail, addMessage, isThinking, setIsThinking } = useAppStore();
+  const { selectedClientId, addMessage, isThinking, setIsThinking } = useAppStore();
   const sendWs = useWsSend();
 
   return (content: string) => {

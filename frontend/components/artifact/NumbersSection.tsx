@@ -8,7 +8,6 @@ interface NumbersSectionProps {
     summary: string;
     details: string;
     python_code?: string;
-    latex?: string;
   };
 }
 

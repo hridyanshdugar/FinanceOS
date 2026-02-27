@@ -26,15 +26,6 @@ CREATE TABLE IF NOT EXISTS accounts (
     last_updated TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
-CREATE TABLE IF NOT EXISTS transactions (
-    id TEXT PRIMARY KEY,
-    account_id TEXT NOT NULL REFERENCES accounts(id),
-    amount REAL NOT NULL,
-    type TEXT NOT NULL CHECK (type IN ('contribution', 'withdrawal', 'dividend', 'transfer', 'fee', 'interest')),
-    description TEXT DEFAULT '',
-    date TEXT NOT NULL
-);
-
 CREATE TABLE IF NOT EXISTS documents (
     id TEXT PRIMARY KEY,
     client_id TEXT NOT NULL REFERENCES clients(id),
@@ -85,20 +76,9 @@ CREATE TABLE IF NOT EXISTS client_rag (
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
-CREATE TABLE IF NOT EXISTS embeddings (
-    id TEXT PRIMARY KEY,
-    source_table TEXT NOT NULL,
-    source_id TEXT NOT NULL,
-    chunk_text TEXT NOT NULL,
-    embedding BLOB,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
 CREATE INDEX IF NOT EXISTS idx_accounts_client ON accounts(client_id);
-CREATE INDEX IF NOT EXISTS idx_transactions_account ON transactions(account_id);
 CREATE INDEX IF NOT EXISTS idx_documents_client ON documents(client_id);
 CREATE INDEX IF NOT EXISTS idx_chat_history_client ON chat_history(client_id);
 CREATE INDEX IF NOT EXISTS idx_agent_tasks_client ON agent_tasks(client_id);
 CREATE INDEX IF NOT EXISTS idx_alerts_client ON alerts(client_id);
 CREATE INDEX IF NOT EXISTS idx_client_rag_client ON client_rag(client_id);
-CREATE INDEX IF NOT EXISTS idx_embeddings_source ON embeddings(source_table, source_id);

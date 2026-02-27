@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import sqlite3
 from pathlib import Path
-from typing import Optional, List
+from typing import List
 
 _SRC_DIR = Path(__file__).parent
 SCHEMA_PATH = _SRC_DIR / "schema.sql"
@@ -25,12 +25,6 @@ def init_db():
     with open(SCHEMA_PATH, "r") as f:
         conn.executescript(f.read())
     conn.close()
-
-
-def dict_from_row(row: Optional[sqlite3.Row]) -> Optional[dict]:
-    if row is None:
-        return None
-    return dict(row)
 
 
 def dicts_from_rows(rows: List[sqlite3.Row]) -> List[dict]:

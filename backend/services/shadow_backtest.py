@@ -15,7 +15,6 @@ from db.database import get_connection, dicts_from_rows
 
 IDLE_CASH_THRESHOLD = 10000
 RRSP_DEADLINE_MONTH = 3  # March
-RRSP_DEADLINE_DAY = 1
 
 
 async def run_shadow_backtest():

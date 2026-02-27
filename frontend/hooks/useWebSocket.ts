@@ -110,6 +110,8 @@ export function useWebSocket() {
         };
         if (payload.analysis) {
           newMsg.analysis = payload.analysis as TriTieredOutput;
+        } else {
+          setArtifactOpen(false);
         }
         addMessage(newMsg);
         break;

@@ -63,28 +63,6 @@ async def call_claude_json(
     return json.loads(text)
 
 
-async def call_gpt4o(
-    system: str,
-    user_message: str,
-    model: str = "gpt-4o",
-    max_tokens: int = 2048,
-    temperature: float = 0.2,
-) -> str:
-    """Call GPT-4o and return the text response."""
-    client = _get_openai_client()
-    response = await asyncio.to_thread(
-        client.chat.completions.create,
-        model=model,
-        max_tokens=max_tokens,
-        temperature=temperature,
-        messages=[
-            {"role": "system", "content": system},
-            {"role": "user", "content": user_message},
-        ],
-    )
-    return response.choices[0].message.content
-
-
 async def call_gpt4o_json(
     system: str,
     user_message: str,

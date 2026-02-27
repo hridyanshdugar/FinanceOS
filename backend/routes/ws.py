@@ -13,17 +13,6 @@ MAX_MESSAGE_SIZE = 10_000
 VALID_TYPES = {"ping", "chat_message"}
 
 
-async def broadcast(message: dict):
-    """Send a message to all connected WebSocket clients."""
-    dead = set()
-    for ws in active_connections:
-        try:
-            await ws.send_json(message)
-        except Exception:
-            dead.add(ws)
-    active_connections.difference_update(dead)
-
-
 async def send_to(ws: WebSocket, message: dict):
     """Send a message to a specific WebSocket client."""
     try:

@@ -2,8 +2,7 @@ from __future__ import annotations
 import json
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from db.database import get_connection, dict_from_row, dicts_from_rows, get_client_rag, add_client_rag, delete_client_rag
-from models.client import Client, Account, Document, ChatMessage, ClientDetail
+from db.database import get_connection, dicts_from_rows, get_client_rag, add_client_rag, delete_client_rag
 
 router = APIRouter(prefix="/api/clients", tags=["clients"])
 

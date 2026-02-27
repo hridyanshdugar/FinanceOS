@@ -1,7 +1,6 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from config import CORS_ORIGINS
 from db.database import init_db
 from db.seed import seed
 from routes.clients import router as clients_router

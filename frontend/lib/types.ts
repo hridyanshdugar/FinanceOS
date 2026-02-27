@@ -88,21 +88,11 @@ export interface AgentTask {
   completed_at: string | null;
 }
 
-export interface WSMessage {
-  type: "agent_dispatch" | "agent_update" | "agent_complete" | "alert_new" | "error" | "chat_response" | "tri_tiered_output";
-  agent?: string;
-  client_id?: string;
-  task_id?: string;
-  payload: Record<string, unknown>;
-}
-
 export interface TriTieredOutput {
   numbers: {
     summary: string;
     details: string;
     python_code?: string;
-    latex?: string;
-    chart_data?: Record<string, unknown>[];
   };
   compliance: {
     status: "clear" | "warning" | "error";
@@ -128,5 +118,4 @@ export interface ConversationMessage {
   timestamp: string;
   analysis?: TriTieredOutput;
   task_id?: string;
-  isStreaming?: boolean;
 }

@@ -22,10 +22,8 @@ interface AppState {
 
   alerts: Alert[];
   setAlerts: (alerts: Alert[]) => void;
-  removeAlert: (id: string) => void;
 
   agentTasks: AgentTask[];
-  setAgentTasks: (tasks: AgentTask[]) => void;
   addAgentTask: (task: AgentTask) => void;
   updateAgentTask: (taskId: string, updates: Partial<AgentTask>) => void;
 
@@ -50,7 +48,6 @@ interface AppState {
 
   thinkingAgents: Record<string, { status: string; description: string }>;
   setThinkingAgent: (agent: string, status: string, description?: string) => void;
-  clearThinkingAgents: () => void;
 
   wsConnected: boolean;
   setWsConnected: (connected: boolean) => void;
@@ -78,10 +75,8 @@ export const useAppStore = create<AppState>((set) => ({
 
   alerts: [],
   setAlerts: (alerts) => set({ alerts }),
-  removeAlert: (id) => set((s) => ({ alerts: s.alerts.filter((a) => a.id !== id) })),
 
   agentTasks: [],
-  setAgentTasks: (tasks) => set({ agentTasks: tasks }),
   addAgentTask: (task) => set((s) => ({ agentTasks: [task, ...s.agentTasks].slice(0, 20) })),
   updateAgentTask: (taskId, updates) =>
     set((s) => ({
@@ -122,7 +117,6 @@ export const useAppStore = create<AppState>((set) => ({
         [agent]: { status, description: description || s.thinkingAgents[agent]?.description || "" },
       },
     })),
-  clearThinkingAgents: () => set({ thinkingAgents: {}, thinkingStep: "" }),
 
   wsConnected: false,
   setWsConnected: (connected) => set({ wsConnected: connected }),
