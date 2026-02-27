@@ -1,13 +1,18 @@
 "use client";
 
-import { useEffect } from "react";
+import { createContext, useContext, useEffect } from "react";
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { MainArea } from "@/components/conversation/MainArea";
 import { ArtifactPanel } from "@/components/artifact/ArtifactPanel";
+import { ProactiveToast } from "@/components/alerts/ProactiveToast";
 import { useAppStore } from "@/lib/store";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { api } from "@/lib/api";
 import type { Client, Alert } from "@/lib/types";
+
+type SendFn = (data: Record<string, unknown>) => void;
+const WsSendContext = createContext<SendFn>(() => {});
+export const useWsSend = () => useContext(WsSendContext);
 
 export function AppShell() {
   const { setClients, setAlerts, artifactOpen } = useAppStore();
@@ -26,13 +31,8 @@ export function AppShell() {
           <MainArea />
           {artifactOpen && <ArtifactPanel />}
         </main>
+        <ProactiveToast />
       </div>
     </WsSendContext.Provider>
   );
 }
-
-import { createContext, useContext } from "react";
-
-type SendFn = (data: Record<string, unknown>) => void;
-const WsSendContext = createContext<SendFn>(() => {});
-export const useWsSend = () => useContext(WsSendContext);

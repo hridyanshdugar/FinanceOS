@@ -7,6 +7,13 @@ from models.alert import AlertActionRequest
 router = APIRouter(prefix="/api/alerts", tags=["alerts"])
 
 
+@router.post("/scan")
+async def trigger_backtest() -> dict:
+    from services.shadow_backtest import run_shadow_backtest
+    new_alerts = await run_shadow_backtest()
+    return {"new_alerts": len(new_alerts)}
+
+
 @router.get("")
 def list_alerts(status: str = "pending") -> list[dict]:
     conn = get_connection()

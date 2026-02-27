@@ -1,12 +1,13 @@
 "use client";
 
 import { useAppStore } from "@/lib/store";
+import { useWsSend } from "@/components/layout/AppShell";
 
 const SUGGESTIONS = [
   "Check contribution room",
   "Run a portfolio review",
   "Draft a check-in email",
-  "Compare investment options",
+  "Compare TFSA vs RRSP",
 ];
 
 interface QuickActionsProps {
@@ -14,15 +15,25 @@ interface QuickActionsProps {
 }
 
 export function QuickActions({ clientName }: QuickActionsProps) {
-  const { addMessage, selectedClientId } = useAppStore();
+  const { addMessage, selectedClientId, setIsThinking } = useAppStore();
+  const sendWs = useWsSend();
 
   const handleClick = (suggestion: string) => {
     if (!selectedClientId) return;
+    const content = `${suggestion} for ${clientName}`;
+
     addMessage({
       id: crypto.randomUUID(),
       role: "advisor",
-      content: `${suggestion} for ${clientName}`,
+      content,
       timestamp: new Date().toISOString(),
+    });
+
+    setIsThinking(true);
+    sendWs({
+      type: "chat_message",
+      client_id: selectedClientId,
+      content,
     });
   };
 

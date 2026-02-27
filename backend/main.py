@@ -14,6 +14,10 @@ from routes.ws import router as ws_router
 async def lifespan(app: FastAPI):
     init_db()
     seed()
+    # Run initial shadow backtest on startup
+    from services.shadow_backtest import run_shadow_backtest
+    import asyncio
+    asyncio.create_task(run_shadow_backtest())
     yield
 
 
