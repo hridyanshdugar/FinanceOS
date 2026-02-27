@@ -1,7 +1,7 @@
 """
 Multi-agent orchestrator for FinanceOS.
-Routes advisor queries to specialized agents and aggregates results
-into the Tri-Tiered Output format.
+Classifies advisor queries to determine which agents (if any) to dispatch,
+then aggregates results into the Tri-Tiered Output format.
 """
 from __future__ import annotations
 
@@ -15,6 +15,88 @@ from fastapi import WebSocket
 
 from db.database import get_connection, dicts_from_rows
 from routes.ws import send_to
+
+
+ROUTING_PROMPT = """\
+You are a query router for a financial advisor's AI assistant.
+Given the advisor's message about a client, classify which specialist agents are needed.
+
+Available agents:
+- context: Reads client profile, knowledge base, documents, and chat history. Drafts personalized emails. Use for questions about client background, communication, goals, or when a draft message is needed.
+- quant: Runs financial calculations (tax brackets, contribution optimization, projections, comparisons). Use ONLY when math, numbers, or financial modeling is explicitly needed.
+- compliance: Checks CRA rules, CIRO suitability, contribution limits, regulatory flags. Use ONLY when the question involves regulatory compliance, contribution limits, or tax rule verification.
+
+Rules:
+- If the question is a simple lookup (e.g., "show me the knowledge base", "what accounts does this client have", "summarize this client"), return NO agents — the system can answer directly from the database.
+- If the advisor wants to UPDATE the knowledge base (e.g., "remember that...", "note that...", "add to knowledge base...", "she prefers...", "he mentioned...", "update: ..."), set "rag_update" to true and extract the entries to add in "rag_entries" as a list of concise strings. Do NOT dispatch agents for this.
+- If the question needs empathy, personalization, or a draft email, include "context".
+- If the question involves calculations, comparisons, or projections, include "quant".
+- If the question touches on regulations, limits, or compliance, include "compliance".
+- Only include agents that are genuinely needed. Most questions need 1-2 agents, not all 3.
+
+Respond in JSON only:
+{"agents": ["context", "quant", "compliance"], "reasoning": "brief explanation", "direct_answer": false, "rag_update": false, "rag_entries": []}
+
+If NO agents are needed (simple lookup), respond:
+{"agents": [], "reasoning": "brief explanation", "direct_answer": true, "rag_update": false, "rag_entries": []}
+
+If the advisor wants to update the knowledge base, respond:
+{"agents": [], "reasoning": "brief explanation", "direct_answer": false, "rag_update": true, "rag_entries": ["concise fact 1", "concise fact 2"]}"""
+
+
+async def _classify_query(query: str) -> dict:
+    """Use Claude to determine which agents to dispatch."""
+    try:
+        from services.llm import call_claude_json
+        result = await call_claude_json(ROUTING_PROMPT, f"Advisor's message: {query}")
+        if "agents" not in result:
+            result["agents"] = ["context", "quant", "compliance"]
+        result["direct_answer"] = result.get("direct_answer", False)
+        result["rag_update"] = result.get("rag_update", False)
+        result["rag_entries"] = result.get("rag_entries", [])
+        return result
+    except Exception:
+        return {"agents": ["context", "quant", "compliance"], "direct_answer": False, "rag_update": False, "rag_entries": [], "reasoning": "classification failed, dispatching all"}
+
+
+async def _direct_response(ws: WebSocket, client: dict, accounts: list, documents: list, rag_entries: list, recent_chat: list, query: str) -> str:
+    """Answer simple lookups directly from the database using Claude, without dispatching agents."""
+    from services.llm import call_claude
+
+    name = client["name"]
+    rag_lines = [f"  - {r['content']}" for r in rag_entries] if rag_entries else ["  (empty)"]
+    account_lines = [f"  {a['type']} ({a.get('label','')}): ${a['balance']:,.0f}" + (f", room ${a['contribution_room']:,.0f}" if a.get('contribution_room', 0) > 0 else "") for a in accounts]
+    doc_lines = [f"  {d['type']} ({d.get('tax_year','N/A')}): {d['content_text'][:200]}" for d in documents]
+    chat_lines = [f"  [{m['role']}]: {m['content'][:150]}" for m in reversed(recent_chat[:5])]
+
+    system = (
+        "You are a concise AI assistant for a wealth advisor. Answer the advisor's question "
+        "using ONLY the client data provided below. Be specific and reference actual data. "
+        "If information is not in the data, say so. Do not make up information. "
+        "Keep your response clear and concise (2-5 sentences)."
+    )
+    user_msg = f"""Advisor's question about {name}: "{query}"
+
+CLIENT: {name}
+  Province: {client.get('province', '')}
+  Income: ${client.get('employment_income', 0):,.0f}
+  Risk: {client.get('risk_profile', '')}
+  Marital: {client.get('marital_status', '')}
+  Dependents: {client.get('dependents', 0)}
+
+KNOWLEDGE BASE:
+{chr(10).join(rag_lines)}
+
+ACCOUNTS:
+{chr(10).join(account_lines) if account_lines else '  None on file.'}
+
+DOCUMENTS:
+{chr(10).join(doc_lines) if doc_lines else '  None on file.'}
+
+RECENT CONVERSATION:
+{chr(10).join(chat_lines) if chat_lines else '  No prior conversations.'}"""
+
+    return await call_claude(system, user_msg, max_tokens=512, temperature=0.3)
 
 
 async def handle_chat_message(ws: WebSocket, message: dict):
@@ -67,48 +149,119 @@ async def handle_chat_message(ws: WebSocket, message: dict):
     )
     client["rag_context"] = [r["content"] for r in rag_entries]
 
-    await send_to(ws, {"type": "thinking", "payload": {"step": "Starting analysis..."}})
+    await send_to(ws, {"type": "thinking", "payload": {"step": "Analyzing your question..."}})
 
-    context_task_id = str(uuid.uuid4())
-    quant_task_id = str(uuid.uuid4())
-    compliance_task_id = str(uuid.uuid4())
+    routing = await _classify_query(content)
+    needed_agents = routing.get("agents", [])
+    is_direct = routing.get("direct_answer", False)
+    is_rag_update = routing.get("rag_update", False)
+    rag_new_entries = routing.get("rag_entries", [])
 
-    agent_descriptions = {
-        "context": f"Reading {client['name']}'s profile, knowledge base, documents, and conversation history",
-        "quant": f"Running financial calculations on {client['name']}'s accounts, knowledge base, and tax situation",
-        "compliance": f"Checking CRA rules, CIRO suitability, and regulatory limits for {client['name']}",
-    }
+    if is_rag_update and rag_new_entries:
+        from db.database import add_client_rag
+        await send_to(ws, {"type": "thinking", "payload": {"step": f"Updating {client['name']}'s knowledge base..."}})
 
-    for tid, agent_name in [
-        (context_task_id, "context"),
-        (quant_task_id, "quant"),
-        (compliance_task_id, "compliance"),
-    ]:
-        await send_to(ws, {
-            "type": "agent_dispatch",
-            "agent": agent_name,
-            "client_id": client_id,
-            "task_id": tid,
-            "payload": {"description": agent_descriptions[agent_name]},
-        })
+        added = []
+        for entry_text in rag_new_entries:
+            entry_text = str(entry_text).strip()
+            if entry_text and len(entry_text) <= 500:
+                row = add_client_rag(client_id, entry_text, source="advisor")
+                added.append(row)
+
+        count = len(added)
+        summary = f"Done — added {count} {'entry' if count == 1 else 'entries'} to {client['name']}'s knowledge base:\n\n" + "\n".join(f"- {e['content']}" for e in added)
+
         conn.execute(
-            "INSERT INTO agent_tasks (id, client_id, agent_type, status, input_data, created_at) VALUES (?,?,?,?,?,?)",
-            (tid, client_id, agent_name, "running", json.dumps({"query": content}), datetime.now().isoformat()),
+            "INSERT INTO chat_history (id, client_id, role, content, created_at) VALUES (?, ?, ?, ?, ?)",
+            (str(uuid.uuid4()), client_id, "system", summary, datetime.now().isoformat()),
         )
-    conn.commit()
+        conn.commit()
+        conn.close()
+
+        await send_to(ws, {
+            "type": "chat_response",
+            "client_id": client_id,
+            "task_id": task_id,
+            "payload": {"content": summary, "analysis": None},
+        })
+        await send_to(ws, {
+            "type": "rag_updated",
+            "client_id": client_id,
+            "payload": {"entries": added},
+        })
+        return
+
+    if is_direct or len(needed_agents) == 0:
+        await send_to(ws, {"type": "thinking", "payload": {"step": f"Answering from {client['name']}'s data..."}})
+
+        try:
+            summary = await _direct_response(ws, client, accounts, documents, rag_entries, recent_chat, content)
+        except Exception:
+            summary = "I couldn't process that request. Please try rephrasing your question."
+
+        conn.execute(
+            "INSERT INTO chat_history (id, client_id, role, content, created_at) VALUES (?, ?, ?, ?, ?)",
+            (str(uuid.uuid4()), client_id, "system", summary, datetime.now().isoformat()),
+        )
+        conn.commit()
+        conn.close()
+
+        await send_to(ws, {
+            "type": "chat_response",
+            "client_id": client_id,
+            "task_id": task_id,
+            "payload": {"content": summary, "analysis": None},
+        })
+        return
+
+    await send_to(ws, {"type": "thinking", "payload": {"step": f"Dispatching {len(needed_agents)} agent{'s' if len(needed_agents) != 1 else ''}..."}})
 
     from agents.context_agent import run_context_agent
     from agents.quant_agent import run_quant_agent
     from agents.compliance_agent import run_compliance_agent
 
-    context_result, quant_result, compliance_result = await asyncio.gather(
-        _run_agent_with_updates(ws, context_task_id, "context", client_id,
-                                run_context_agent, client, accounts, documents, recent_chat, content, conn),
-        _run_agent_with_updates(ws, quant_task_id, "quant", client_id,
-                                run_quant_agent, client, accounts, documents, recent_chat, content, conn),
-        _run_agent_with_updates(ws, compliance_task_id, "compliance", client_id,
-                                run_compliance_agent, client, accounts, documents, recent_chat, content, conn),
-    )
+    agent_map = {
+        "context": (run_context_agent, f"Reading {client['name']}'s profile, knowledge base, documents, and conversation history"),
+        "quant": (run_quant_agent, f"Running financial calculations on {client['name']}'s accounts and tax situation"),
+        "compliance": (run_compliance_agent, f"Checking CRA rules, CIRO suitability, and regulatory limits for {client['name']}"),
+    }
+
+    agent_tasks_list = []
+    agent_task_ids = {}
+
+    for agent_name in needed_agents:
+        if agent_name not in agent_map:
+            continue
+        tid = str(uuid.uuid4())
+        agent_task_ids[agent_name] = tid
+        fn, description = agent_map[agent_name]
+
+        await send_to(ws, {
+            "type": "agent_dispatch",
+            "agent": agent_name,
+            "client_id": client_id,
+            "task_id": tid,
+            "payload": {"description": description},
+        })
+        conn.execute(
+            "INSERT INTO agent_tasks (id, client_id, agent_type, status, input_data, created_at) VALUES (?,?,?,?,?,?)",
+            (tid, client_id, agent_name, "running", json.dumps({"query": content}), datetime.now().isoformat()),
+        )
+        agent_tasks_list.append(
+            _run_agent_with_updates(ws, tid, agent_name, client_id, fn, client, accounts, documents, recent_chat, content, conn)
+        )
+
+    conn.commit()
+
+    results = await asyncio.gather(*agent_tasks_list)
+
+    result_map = {}
+    for i, agent_name in enumerate(n for n in needed_agents if n in agent_map):
+        result_map[agent_name] = results[i]
+
+    context_result = result_map.get("context")
+    quant_result = result_map.get("quant")
+    compliance_result = result_map.get("compliance")
 
     await send_to(ws, {"type": "thinking", "payload": {"step": "Synthesizing results..."}})
 

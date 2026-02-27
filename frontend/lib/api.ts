@@ -16,6 +16,7 @@ export const api = {
   getClient: (id: string) => fetchJSON<Record<string, unknown>>(`/api/clients/${id}`),
   getClientAccounts: (id: string) => fetchJSON<Record<string, unknown>[]>(`/api/clients/${id}/accounts`),
   getClientChat: (id: string) => fetchJSON<Record<string, unknown>[]>(`/api/clients/${id}/chat`),
+  clearClientChat: (id: string) => fetchJSON<Record<string, unknown>>(`/api/clients/${id}/chat`, { method: "DELETE" }),
   getAlerts: (status = "pending") => fetchJSON<Record<string, unknown>[]>(`/api/alerts?status=${status}`),
   actOnAlert: (alertId: string, action: string, note = "") =>
     fetchJSON<Record<string, unknown>>(`/api/alerts/${alertId}/action`, {

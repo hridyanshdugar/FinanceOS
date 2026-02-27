@@ -116,7 +116,10 @@ export function ClientWorkspace() {
             Shadow Agent — {client.name}
           </span>
           <button
-            onClick={() => setConversation([])}
+            onClick={() => {
+              setConversation([]);
+              if (selectedClientId) api.clearClientChat(selectedClientId);
+            }}
             className="ml-auto flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             <RotateCcw className="h-3.5 w-3.5" />

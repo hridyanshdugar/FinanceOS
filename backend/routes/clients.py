@@ -89,6 +89,18 @@ def get_chat_history(client_id: str) -> list[dict]:
     return dicts_from_rows(rows)
 
 
+@router.delete("/{client_id}/chat")
+def clear_chat_history(client_id: str) -> dict:
+    conn = get_connection()
+    conn.execute(
+        "DELETE FROM chat_history WHERE client_id = ? AND role != 'client'",
+        (client_id,),
+    )
+    conn.commit()
+    conn.close()
+    return {"status": "cleared"}
+
+
 class RagEntryRequest(BaseModel):
     content: str
 

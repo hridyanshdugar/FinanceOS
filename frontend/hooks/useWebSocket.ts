@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useCallback } from "react";
 import { useAppStore } from "@/lib/store";
-import type { AgentTask, ConversationMessage, TriTieredOutput } from "@/lib/types";
+import type { AgentTask, ConversationMessage, TriTieredOutput, RagEntry } from "@/lib/types";
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000/ws";
 
@@ -22,6 +22,8 @@ export function useWebSocket() {
     setArtifactOpen,
     alerts,
     setAlerts,
+    clientDetail,
+    setClientDetail,
   } = useAppStore();
 
   const connect = useCallback(() => {
@@ -129,6 +131,16 @@ export function useWebSocket() {
       case "alert_new": {
         const newAlert = payload as unknown as Record<string, unknown>;
         setAlerts([...(alerts || []), newAlert as never]);
+        break;
+      }
+      case "rag_updated": {
+        const newEntries = (payload.entries as RagEntry[]) || [];
+        if (clientDetail && newEntries.length > 0) {
+          setClientDetail({
+            ...clientDetail,
+            rag_entries: [...(clientDetail.rag_entries || []), ...newEntries],
+          });
+        }
         break;
       }
       case "error": {
