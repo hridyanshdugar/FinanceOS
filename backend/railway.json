@@ -5,10 +5,5 @@
   },
   "deploy": {
     "startCommand": "python start.py"
-  },
-  "volumes": {
-    "data": {
-      "mountPath": "/data"
-    }
   }
 }

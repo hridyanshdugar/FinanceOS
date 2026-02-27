@@ -5,7 +5,8 @@ import os
 
 subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", "requirements.txt", "-q"])
 
-os.environ.setdefault("DB_DIR", "/data")
+volume_path = os.environ.get("RAILWAY_VOLUME_MOUNT_PATH", "/app/data")
+os.environ.setdefault("DB_DIR", volume_path)
 
 port = os.environ.get("PORT", "8000")
 os.execvp(
