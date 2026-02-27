@@ -126,10 +126,10 @@ Railway will assign a public domain (e.g., `your-backend-xxxx.up.railway.app`). 
 Add a second service from the same repo. Configure it:
 
 - **Root directory**: `frontend`
-- **Build command**: `npm install && npm run build`
-- **Start command**: `npm start`
 
-Add these environment variables:
+Railway auto-detects pnpm from the lockfile, runs `pnpm install`, `pnpm build`, and `pnpm start`. The start script binds to `0.0.0.0` on `$PORT` automatically.
+
+Add these environment variables (must be set before the build, since Next.js inlines `NEXT_PUBLIC_*` at build time):
 
 ```
 NEXT_PUBLIC_API_URL=https://your-backend-xxxx.up.railway.app
