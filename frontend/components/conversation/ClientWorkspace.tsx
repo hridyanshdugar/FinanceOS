@@ -1,0 +1,338 @@
+"use client";
+
+import { useEffect } from "react";
+import {
+  MessageSquare,
+  LayoutDashboard,
+  DollarSign,
+  Target,
+  FileText,
+  Mail,
+  TrendingUp,
+  Shield,
+  ChevronRight,
+  User,
+  Briefcase,
+  MapPin,
+} from "lucide-react";
+import { useAppStore } from "@/lib/store";
+import { api } from "@/lib/api";
+import { ConversationThread } from "./ConversationThread";
+import { InputBar } from "./InputBar";
+import type { ClientDetail, ConversationMessage } from "@/lib/types";
+
+export function ClientWorkspace() {
+  const {
+    selectedClientId,
+    clientDetail,
+    setClientDetail,
+    setConversation,
+    activePanel,
+    setActivePanel,
+    alerts,
+  } = useAppStore();
+
+  useEffect(() => {
+    if (!selectedClientId) return;
+    api.getClient(selectedClientId).then((data) => {
+      const detail = data as unknown as ClientDetail;
+      setClientDetail(detail);
+      const existingMessages: ConversationMessage[] = detail.chat_history.map((ch) => ({
+        id: ch.id,
+        role: ch.role === "advisor" ? "advisor" : "shadow",
+        content: ch.content,
+        timestamp: ch.created_at,
+      }));
+      setConversation(existingMessages);
+    });
+  }, [selectedClientId, setClientDetail, setConversation]);
+
+  if (!clientDetail) {
+    return (
+      <div className="flex-1 p-6">
+        <div className="space-y-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-24 rounded-2xl animate-shimmer" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const { client } = clientDetail;
+  const clientAlerts = alerts.filter(
+    (a) => a.client_id === selectedClientId && a.status === "pending"
+  );
+  const clientNotes = clientDetail.chat_history.filter((m) => m.role === "client");
+  const totalPortfolio = clientDetail.total_portfolio;
+
+  if (activePanel === "chat") {
+    return (
+      <div className="flex-1 flex flex-col h-full">
+        {/* Chat header with back button */}
+        <div className="border-b border-border bg-card px-6 py-3 flex items-center gap-3">
+          <button
+            onClick={() => setActivePanel("overview")}
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ChevronRight className="h-4 w-4 rotate-180" />
+            Back
+          </button>
+          <div className="h-4 w-px bg-border" />
+          <MessageSquare className="h-4 w-4 text-primary" />
+          <span className="text-sm font-medium text-foreground">
+            Shadow Agent — {client.name}
+          </span>
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-3xl mx-auto w-full px-6 py-6">
+            <ConversationThread />
+          </div>
+        </div>
+        <InputBar />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 overflow-y-auto">
+      <div className="p-6 max-w-6xl mx-auto space-y-6 animate-fade-in-up">
+        {/* Client Header */}
+        <div className="flex items-start justify-between">
+          <div>
+            <div className="flex items-center gap-3">
+              <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-amber-100 to-amber-50 flex items-center justify-center text-amber-700 font-semibold text-lg">
+                {client.name.split(" ").map((n) => n[0]).join("")}
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold text-foreground tracking-tight">
+                  {client.name}
+                </h2>
+                <div className="flex items-center gap-2 mt-0.5 text-sm text-muted-foreground">
+                  <MapPin className="h-3 w-3" />
+                  <span>{client.province}</span>
+                  <span className="text-border">·</span>
+                  <Briefcase className="h-3 w-3" />
+                  <span>{client.employer || "Self-employed"}</span>
+                  <span className="text-border">·</span>
+                  <span className="capitalize">{client.risk_profile}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => setActivePanel("chat")}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-foreground text-white text-sm font-medium
+                     hover:bg-foreground/90 transition-colors shadow-sm"
+          >
+            <MessageSquare className="h-4 w-4" />
+            Ask Shadow
+          </button>
+        </div>
+
+        {/* Quick Stats Row */}
+        <div className="grid grid-cols-4 gap-3">
+          <div className="bg-card border border-border rounded-2xl p-4">
+            <div className="flex items-center gap-2 text-muted-foreground mb-1">
+              <DollarSign className="h-3.5 w-3.5" />
+              <span className="text-xs font-medium uppercase tracking-wider">Portfolio</span>
+            </div>
+            <p className="text-xl font-semibold text-foreground">
+              ${totalPortfolio.toLocaleString("en-CA")}
+            </p>
+          </div>
+          <div className="bg-card border border-border rounded-2xl p-4">
+            <div className="flex items-center gap-2 text-muted-foreground mb-1">
+              <TrendingUp className="h-3.5 w-3.5" />
+              <span className="text-xs font-medium uppercase tracking-wider">Income</span>
+            </div>
+            <p className="text-xl font-semibold text-foreground">
+              ${client.employment_income.toLocaleString("en-CA")}
+            </p>
+          </div>
+          <div className="bg-card border border-border rounded-2xl p-4">
+            <div className="flex items-center gap-2 text-muted-foreground mb-1">
+              <User className="h-3.5 w-3.5" />
+              <span className="text-xs font-medium uppercase tracking-wider">Dependents</span>
+            </div>
+            <p className="text-xl font-semibold text-foreground">
+              {client.dependents}
+            </p>
+          </div>
+          <div className="bg-card border border-border rounded-2xl p-4">
+            <div className="flex items-center gap-2 text-muted-foreground mb-1">
+              <Shield className="h-3.5 w-3.5" />
+              <span className="text-xs font-medium uppercase tracking-wider">Risk</span>
+            </div>
+            <p className="text-xl font-semibold text-foreground capitalize">
+              {client.risk_profile}
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-4">
+          {/* Left column: Accounts + Goals */}
+          <div className="col-span-2 space-y-4">
+            {/* Accounts */}
+            <div className="bg-card border border-border rounded-2xl p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <LayoutDashboard className="h-4 w-4 text-primary" />
+                <h3 className="text-sm font-semibold text-foreground">Accounts</h3>
+              </div>
+              <div className="space-y-2">
+                {clientDetail.accounts.map((acct) => (
+                  <div
+                    key={acct.id}
+                    className="flex items-center justify-between py-2.5 px-3 rounded-xl hover:bg-accent/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-lg bg-accent flex items-center justify-center">
+                        <span className="text-xs font-semibold text-foreground">
+                          {acct.type.slice(0, 3).toUpperCase()}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{acct.type}</p>
+                        <p className="text-xs text-muted-foreground">{acct.label}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold text-foreground">
+                        ${acct.balance.toLocaleString("en-CA")}
+                      </p>
+                      {acct.contribution_room > 0 && (
+                        <p className="text-xs text-primary">
+                          ${acct.contribution_room.toLocaleString("en-CA")} room
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Goals */}
+            {client.goals.length > 0 && (
+              <div className="bg-card border border-border rounded-2xl p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <Target className="h-4 w-4 text-primary" />
+                  <h3 className="text-sm font-semibold text-foreground">Goals</h3>
+                </div>
+                <div className="space-y-2">
+                  {client.goals.map((goal, i) => (
+                    <div key={i} className="flex items-center gap-3 py-2 px-3 rounded-xl bg-accent/30">
+                      <div className="h-6 w-6 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center text-xs font-semibold">
+                        {i + 1}
+                      </div>
+                      <p className="text-sm text-foreground">{goal}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Documents */}
+            {clientDetail.documents.length > 0 && (
+              <div className="bg-card border border-border rounded-2xl p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <FileText className="h-4 w-4 text-primary" />
+                  <h3 className="text-sm font-semibold text-foreground">Documents</h3>
+                </div>
+                <div className="space-y-2">
+                  {clientDetail.documents.map((doc) => (
+                    <div key={doc.id} className="flex items-center gap-3 py-2 px-3 rounded-xl hover:bg-accent/50 transition-colors">
+                      <div className="h-8 w-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+                        <FileText className="h-3.5 w-3.5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground">{doc.type}</p>
+                        <p className="text-xs text-muted-foreground truncate">{doc.content_text.slice(0, 80)}...</p>
+                      </div>
+                      <span className="text-xs text-muted-foreground shrink-0">{doc.tax_year}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Right column: Client Notes + Alerts + Quick Actions */}
+          <div className="space-y-4">
+            {/* Client Notes */}
+            {clientNotes.length > 0 && (
+              <div className="bg-card border border-border rounded-2xl p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <Mail className="h-4 w-4 text-primary" />
+                  <h3 className="text-sm font-semibold text-foreground">Client Notes</h3>
+                </div>
+                <div className="space-y-3">
+                  {clientNotes.map((note) => (
+                    <div key={note.id} className="p-3 rounded-xl bg-amber-50/50 border border-amber-100">
+                      <p className="text-sm text-foreground leading-relaxed">{note.content}</p>
+                      <p className="text-[10px] text-muted-foreground mt-2">
+                        {new Date(note.created_at).toLocaleDateString("en-CA", {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Alerts for this client */}
+            {clientAlerts.length > 0 && (
+              <div className="bg-card border border-border rounded-2xl p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <Shield className="h-4 w-4 text-amber-600" />
+                  <h3 className="text-sm font-semibold text-foreground">Action Items</h3>
+                  <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-medium">
+                    {clientAlerts.length}
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {clientAlerts.map((alert) => (
+                    <div key={alert.id} className="p-3 rounded-xl bg-accent/50 border border-border">
+                      <p className="text-xs font-medium text-foreground">{alert.title}</p>
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                        {alert.description}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Advisor Notes */}
+            {client.advisor_notes && (
+              <div className="bg-card border border-border rounded-2xl p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  <h3 className="text-sm font-semibold text-foreground">Advisor Notes</h3>
+                </div>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {client.advisor_notes}
+                </p>
+              </div>
+            )}
+
+            {/* Ask Shadow CTA */}
+            <button
+              onClick={() => setActivePanel("chat")}
+              className="w-full p-4 rounded-2xl bg-gradient-to-br from-foreground to-foreground/90 text-white text-left hover:from-foreground/95 hover:to-foreground/85 transition-all group"
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <MessageSquare className="h-4 w-4" />
+                <span className="text-sm font-semibold">Ask Shadow</span>
+              </div>
+              <p className="text-xs text-white/60">
+                Run analysis, check compliance, or draft a message
+              </p>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
