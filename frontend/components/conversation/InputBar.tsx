@@ -1,15 +1,26 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { SendHorizontal } from "lucide-react";
+import { SendHorizontal, Sparkles } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 import { useWsSend } from "@/components/layout/AppShell";
+
+const ACTION_SUGGESTIONS = [
+  "Check contribution room",
+  "Run a portfolio review",
+  "Draft a check-in email",
+  "Compare TFSA vs RRSP",
+  "Summarize this client",
+  "Check compliance",
+];
 
 export function InputBar() {
   const [input, setInput] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const { selectedClientId, addMessage, isThinking, setIsThinking } = useAppStore();
+  const { selectedClientId, clientDetail, conversation, addMessage, isThinking, setIsThinking } = useAppStore();
   const sendWs = useWsSend();
+
+  const showSuggestions = selectedClientId && !isThinking && conversation.length === 0 && !input;
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -19,14 +30,13 @@ export function InputBar() {
     }
   }, [input]);
 
-  const handleSend = () => {
-    const trimmed = input.trim();
-    if (!trimmed || !selectedClientId || isThinking) return;
+  const sendMessage = (content: string) => {
+    if (!content || !selectedClientId || isThinking) return;
 
     addMessage({
       id: crypto.randomUUID(),
       role: "advisor",
-      content: trimmed,
+      content,
       timestamp: new Date().toISOString(),
     });
 
@@ -35,10 +45,17 @@ export function InputBar() {
     sendWs({
       type: "chat_message",
       client_id: selectedClientId,
-      content: trimmed,
+      content,
     });
 
     setInput("");
+  };
+
+  const handleSend = () => sendMessage(input.trim());
+
+  const handleSuggestion = (suggestion: string) => {
+    const clientName = clientDetail?.client.name ?? "this client";
+    sendMessage(`${suggestion} for ${clientName}`);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -51,6 +68,22 @@ export function InputBar() {
   return (
     <div className="border-t border-border bg-card px-6 py-4">
       <div className="max-w-3xl mx-auto">
+        {showSuggestions && (
+          <div className="mb-3 flex items-start gap-2 flex-wrap">
+            <Sparkles className="h-3.5 w-3.5 text-muted-foreground mt-1.5 shrink-0" />
+            {ACTION_SUGGESTIONS.map((s) => (
+              <button
+                key={s}
+                onClick={() => handleSuggestion(s)}
+                className="px-3 py-1.5 text-xs rounded-lg border border-border bg-background
+                         text-muted-foreground hover:text-foreground hover:border-primary/30
+                         hover:bg-accent/50 transition-all duration-150"
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="relative flex items-end gap-2 rounded-2xl border border-border bg-background px-4 py-3
                       focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all">
           <textarea
