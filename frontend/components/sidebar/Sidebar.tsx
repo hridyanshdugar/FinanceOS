@@ -5,6 +5,7 @@ import { Search } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 import { ClientRow } from "./ClientRow";
 import { WorkingOn } from "./WorkingOn";
+import { ConnectionStatus } from "@/components/shared/ConnectionStatus";
 
 export function Sidebar() {
   const { clients, selectedClientId, setSelectedClientId } = useAppStore();
@@ -18,10 +19,15 @@ export function Sidebar() {
     <aside className="w-[260px] h-full flex flex-col border-r border-border bg-card shrink-0">
       {/* Logo */}
       <div className="px-5 py-4 border-b border-border">
-        <h1 className="text-lg font-semibold tracking-tight text-foreground">
-          WS Shadow
-        </h1>
-        <p className="text-xs text-muted-foreground mt-0.5">Alex&apos;s workspace</p>
+        <button
+          onClick={() => setSelectedClientId(null)}
+          className="text-left"
+        >
+          <h1 className="text-lg font-semibold tracking-tight text-foreground">
+            WS Shadow
+          </h1>
+          <p className="text-xs text-muted-foreground mt-0.5">Alex&apos;s workspace</p>
+        </button>
       </div>
 
       {/* Search */}
@@ -57,6 +63,11 @@ export function Sidebar() {
 
       {/* Working On */}
       <WorkingOn />
+
+      {/* Connection Status */}
+      <div className="border-t border-border px-3 py-2">
+        <ConnectionStatus />
+      </div>
     </aside>
   );
 }
