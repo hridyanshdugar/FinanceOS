@@ -21,7 +21,7 @@ import {
 import { useAppStore } from "@/lib/store";
 import { api } from "@/lib/api";
 import { ConversationThread } from "./ConversationThread";
-import { InputBar } from "./InputBar";
+import { InputBar, ACTION_SUGGESTIONS, useSendMessage } from "./InputBar";
 import type { ClientDetail, ConversationMessage, RagEntry } from "@/lib/types";
 
 export function ClientWorkspace() {
@@ -143,6 +143,7 @@ export function ClientWorkspace() {
             <ConversationThread />
           </div>
         </div>
+        <ChatSuggestions clientName={client.name} />
         <InputBar />
       </div>
     );
@@ -356,6 +357,36 @@ export function ClientWorkspace() {
             </button>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+
+function ChatSuggestions({ clientName }: { clientName: string }) {
+  const { selectedClientId, isThinking } = useAppStore();
+  const sendMessage = useSendMessage();
+
+  if (!selectedClientId || isThinking) return null;
+
+  const handleClick = (suggestion: string) => {
+    sendMessage(`${suggestion} for ${clientName}`);
+  };
+
+  return (
+    <div className="px-6 py-2 bg-card">
+      <div className="max-w-3xl mx-auto flex gap-2 overflow-x-auto no-scrollbar">
+        {ACTION_SUGGESTIONS.map((s) => (
+          <button
+            key={s}
+            onClick={() => handleClick(s)}
+            className="px-3 py-1.5 text-xs rounded-lg border border-border bg-background
+                     text-muted-foreground hover:text-foreground hover:border-primary/30
+                     hover:bg-accent/50 transition-all duration-150 whitespace-nowrap shrink-0"
+          >
+            {s}
+          </button>
+        ))}
       </div>
     </div>
   );
