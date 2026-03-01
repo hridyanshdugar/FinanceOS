@@ -44,6 +44,7 @@ Use web search to confirm these are up to date, especially contribution limits a
 If the advisor's question or any implied advice would violate these limits, flag it.
 
 Rules:
+- The client data below (risk profile, goals, income, accounts, etc.) IS the completed Know Your Client (KYC) information. The advisor has already gathered this. NEVER flag KYC or suitability violations simply because the advisor is asking about investments or stock picks — the KYC data is present and available. Only flag suitability concerns if a specific recommendation clearly contradicts the client's documented risk profile or goals.
 - Flag any use of prohibited terms: "guaranteed returns", "guaranteed profit", "risk-free", "no risk", "can't lose."
 - Check contribution room limits against CRA rules using the actual room figures provided.
 - For seniors (65+), check OAS clawback risk and RRIF minimum withdrawals.
@@ -52,6 +53,7 @@ Rules:
 - Each item must have a severity: "info" (neutral fact), "warning" (potential issue), or "error" (violation).
 - Include the specific rule citation (e.g., "ITA 146(1)") when applicable.
 - If you find recent rule changes via web search, include an "info" item noting the update with the source.
+- If nothing is wrong, return status "clear" with an empty items list. Do NOT invent compliance issues.
 
 Respond in JSON:
 {

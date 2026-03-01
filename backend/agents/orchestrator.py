@@ -38,6 +38,7 @@ Rules:
 - If the question touches on regulations, limits, or compliance, include "compliance".
 - If the question involves investment suggestions, ETFs, stocks, portfolio composition, asset allocation, what to buy, or rebalancing, include "researcher".
 - Only include agents that are genuinely needed. Most questions need 1-2 agents, not all 4.
+- IMPORTANT: When the advisor asks to look up stocks, ETFs, investment ideas, or asset allocation, ONLY dispatch "researcher". Do NOT include "quant" (no calculation is needed for lookups) or "compliance" (the researcher already considers the client's suitability). Only add "compliance" when the question explicitly asks about regulatory rules, contribution limits, or tax compliance. Only add "quant" when explicit math/projections are requested.
 
 Respond in JSON only:
 {"agents": ["context", "quant", "compliance", "researcher"], "reasoning": "brief explanation", "direct_answer": false, "rag_update": false, "rag_entries": [], "rag_delete": false, "rag_delete_keywords": []}
