@@ -1,13 +1,14 @@
 """
-Researcher Agent: Uses Claude to suggest suitable investment products
+Researcher Agent: Uses Claude with web search to suggest suitable investment products
 (ETFs, stocks, asset classes) based on the client's risk profile,
 goals, accounts, knowledge base, and the advisor's question.
+Searches the web for current market data and investment research.
 Returns structured suggestions with rationale tied to client data.
 """
 from __future__ import annotations
 
 import json
-from services.llm import call_claude_json
+from services.llm import call_claude_json_with_search
 
 CANADIAN_INVESTMENT_UNIVERSE = """
 CANADIAN ETF / INDEX UNIVERSE (reference list — suggest from these when appropriate):
@@ -50,6 +51,10 @@ income, knowledge base notes, and the advisor's specific question.
 
 {CANADIAN_INVESTMENT_UNIVERSE}
 
+You have access to web search. Use it to look up current ETF performance, yields, MERs,
+recent market conditions, GIC rates, and any relevant investment research.
+This ensures your suggestions reflect the latest market data rather than stale information.
+
 RULES:
 - Match suggestions to the client's ACTUAL risk profile and goals from the data below.
 - For conservative clients: emphasize bonds, GICs, dividend ETFs, balanced funds.
@@ -62,6 +67,7 @@ RULES:
 - For TFSA: suggest highest-growth assets (equities) since gains are tax-free.
 - For RESP: consider time horizon to education withdrawal.
 - NEVER guarantee returns. Always frame as "may", "historically", "expected."
+- When web search provides current data (yields, MERs, performance), reference it in your rationale.
 - Be specific with ticker symbols and allocation percentages.
 - Keep suggestions concise and actionable.
 
@@ -93,7 +99,7 @@ async def run_researcher_agent(
     query: str,
     conn,
 ) -> dict:
-    """Suggest suitable investments based on client profile via Claude."""
+    """Suggest suitable investments based on client profile via Claude with web search."""
     name = client["name"]
     income = client.get("employment_income", 0)
     province = client.get("province", "")
@@ -149,7 +155,7 @@ RECENT CONVERSATION:
 """
 
     try:
-        result = await call_claude_json(SYSTEM_PROMPT, user_message)
+        result = await call_claude_json_with_search(SYSTEM_PROMPT, user_message)
         if "suggestions" not in result:
             result["suggestions"] = []
         if "asset_mix" not in result:
