@@ -68,6 +68,10 @@ export const useAppStore = create<AppState>((set) => ({
       artifactOpen: false,
       currentAnalysis: null,
       activePanel: id ? "overview" : null,
+      agentTasks: [],
+      thinkingAgents: {},
+      isThinking: false,
+      thinkingStep: "",
     }),
 
   clientDetail: null,

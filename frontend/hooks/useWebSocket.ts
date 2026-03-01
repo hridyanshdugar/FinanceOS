@@ -63,9 +63,13 @@ export function useWebSocket() {
   const handleMessage = useCallback((msg: Record<string, unknown>) => {
     const type = msg.type as string;
     const payload = msg.payload as Record<string, unknown> || {};
+    const msgClientId = msg.client_id as string | undefined;
+    const currentClientId = useAppStore.getState().selectedClientId;
+    const isForCurrentClient = !msgClientId || msgClientId === currentClientId;
 
     switch (type) {
       case "agent_dispatch": {
+        if (!isForCurrentClient) break;
         const description = (payload.description as string) || "";
         addAgentTask({
           id: msg.task_id as string,
@@ -83,6 +87,7 @@ export function useWebSocket() {
         break;
       }
       case "agent_update": {
+        if (!isForCurrentClient) break;
         updateAgentTask(msg.task_id as string, {
           status: "running",
           output_data: payload,
@@ -91,6 +96,7 @@ export function useWebSocket() {
         break;
       }
       case "agent_complete": {
+        if (!isForCurrentClient) break;
         updateAgentTask(msg.task_id as string, {
           status: "completed",
           output_data: payload,
@@ -100,6 +106,7 @@ export function useWebSocket() {
         break;
       }
       case "chat_response": {
+        if (!isForCurrentClient) break;
         setIsThinking(false);
         const newMsg: ConversationMessage = {
           id: crypto.randomUUID(),
@@ -117,6 +124,7 @@ export function useWebSocket() {
         break;
       }
       case "tri_tiered_output": {
+        if (!isForCurrentClient) break;
         const analysis = payload as unknown as TriTieredOutput;
         setCurrentAnalysis(analysis);
         setCurrentTaskId(msg.task_id as string);
@@ -124,6 +132,7 @@ export function useWebSocket() {
         break;
       }
       case "thinking": {
+        if (!isForCurrentClient) break;
         setIsThinking(true);
         if (payload.step) {
           setThinkingStep(payload.step as string);
@@ -136,21 +145,25 @@ export function useWebSocket() {
         break;
       }
       case "rag_updated": {
+        if (!isForCurrentClient) break;
+        const currentDetail = useAppStore.getState().clientDetail;
         const newEntries = (payload.entries as RagEntry[]) || [];
-        if (clientDetail && newEntries.length > 0) {
+        if (currentDetail && newEntries.length > 0) {
           setClientDetail({
-            ...clientDetail,
-            rag_entries: [...(clientDetail.rag_entries || []), ...newEntries],
+            ...currentDetail,
+            rag_entries: [...(currentDetail.rag_entries || []), ...newEntries],
           });
         }
         break;
       }
       case "rag_deleted": {
+        if (!isForCurrentClient) break;
+        const detail = useAppStore.getState().clientDetail;
         const deletedIds = (payload.entry_ids as string[]) || [];
-        if (clientDetail && deletedIds.length > 0) {
+        if (detail && deletedIds.length > 0) {
           setClientDetail({
-            ...clientDetail,
-            rag_entries: (clientDetail.rag_entries || []).filter(
+            ...detail,
+            rag_entries: (detail.rag_entries || []).filter(
               (e) => !deletedIds.includes(e.id)
             ),
           });
@@ -158,6 +171,7 @@ export function useWebSocket() {
         break;
       }
       case "error": {
+        if (!isForCurrentClient) break;
         setIsThinking(false);
         addMessage({
           id: crypto.randomUUID(),

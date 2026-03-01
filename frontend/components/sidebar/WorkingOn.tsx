@@ -11,11 +11,12 @@ const AGENT_LABELS: Record<string, string> = {
 };
 
 export function WorkingOn() {
-  const { agentTasks } = useAppStore();
-  const activeTasks = agentTasks.filter(
+  const { agentTasks, selectedClientId } = useAppStore();
+  const clientTasks = agentTasks.filter((t) => t.client_id === selectedClientId);
+  const activeTasks = clientTasks.filter(
     (t) => t.status === "running" || t.status === "pending"
   );
-  const recentDone = agentTasks
+  const recentDone = clientTasks
     .filter((t) => t.status === "completed" || t.status === "failed")
     .slice(0, 2);
 
