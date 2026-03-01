@@ -38,6 +38,8 @@ export function ClientWorkspace() {
     alerts,
   } = useAppStore();
 
+  const [showCompleted, setShowCompleted] = useState(false);
+
   useEffect(() => {
     if (!selectedClientId) return;
     api.getClient(selectedClientId).then((data) => {
@@ -93,7 +95,6 @@ export function ClientWorkspace() {
   }
 
   const { client } = clientDetail;
-  const [showCompleted, setShowCompleted] = useState(false);
   const clientAlerts = alerts.filter(
     (a) => a.client_id === selectedClientId && a.status === "pending"
   );
