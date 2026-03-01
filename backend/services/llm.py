@@ -12,10 +12,8 @@ from functools import lru_cache
 
 from config import ANTHROPIC_API_KEY
 
-MODEL_HAIKU = "claude-haiku-3-5-20241022"
+MODEL_HAIKU = "claude-haiku-4-5-20251001"
 MODEL_SONNET = "claude-sonnet-4-20250514"
-
-WEB_SEARCH_TOOL = {"type": "web_search_20250305", "name": "web_search"}
 
 
 @lru_cache()
@@ -83,34 +81,3 @@ async def call_claude_json(
     return _parse_json(raw)
 
 
-async def call_claude_with_search(
-    system: str,
-    user_message: str,
-    model: str = MODEL_SONNET,
-    max_tokens: int = 4096,
-    temperature: float = 0.3,
-) -> str:
-    """Call Claude with web search enabled. Claude decides when to search."""
-    client = _get_anthropic_client()
-    response = await asyncio.to_thread(
-        client.messages.create,
-        model=model,
-        max_tokens=max_tokens,
-        temperature=temperature,
-        system=system,
-        messages=[{"role": "user", "content": user_message}],
-        tools=[WEB_SEARCH_TOOL],
-    )
-    return _extract_text(response)
-
-
-async def call_claude_json_with_search(
-    system: str,
-    user_message: str,
-    model: str = MODEL_SONNET,
-    max_tokens: int = 4096,
-    temperature: float = 0.2,
-) -> dict:
-    """Call Claude with web search enabled and parse the response as JSON."""
-    raw = await call_claude_with_search(system, user_message, model, max_tokens, temperature)
-    return _parse_json(raw)
