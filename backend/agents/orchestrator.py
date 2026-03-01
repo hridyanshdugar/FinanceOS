@@ -141,7 +141,8 @@ async def _match_rag_entries_for_deletion(rag_entries: list, keywords: list) -> 
     user_msg = f"Advisor wants to remove: {keywords_text}\n\nExisting entries:\n{entries_text}"
 
     try:
-        result = await call_claude_json(system, user_msg)
+        from services.llm import MODEL_HAIKU
+        result = await call_claude_json(system, user_msg, model=MODEL_HAIKU)
         return result.get("delete_ids", [])
     except Exception:
         return _fuzzy_match_entries(rag_entries, keywords)
@@ -183,8 +184,8 @@ async def _classify_query(query: str) -> dict:
             }
 
     try:
-        from services.llm import call_claude_json
-        result = await call_claude_json(ROUTING_PROMPT, f"Advisor's message: {query}")
+        from services.llm import call_claude_json, MODEL_HAIKU
+        result = await call_claude_json(ROUTING_PROMPT, f"Advisor's message: {query}", model=MODEL_HAIKU)
         if "agents" not in result:
             result["agents"] = ["context", "quant", "compliance", "researcher"]
         result["direct_answer"] = result.get("direct_answer", False)

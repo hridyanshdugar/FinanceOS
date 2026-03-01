@@ -1,5 +1,5 @@
 """
-Quant Agent: Uses GPT-4o to perform financial calculations for Canadian clients.
+Quant Agent: Uses Claude to perform financial calculations for Canadian clients.
 Generates Python code, executes it in a sandbox, and returns results with formulas.
 Never does math in plain text — always generates and runs code.
 """
@@ -9,7 +9,7 @@ import json
 import subprocess
 import tempfile
 import os
-from services.llm import call_gpt4o_json
+from services.llm import call_claude_json
 
 SYSTEM_PROMPT = """\
 You are the Quant Agent in a wealth advisor's AI assistant for Canadian clients.
@@ -50,7 +50,7 @@ async def run_quant_agent(
     query: str,
     conn,
 ) -> dict:
-    """Run quantitative analysis via GPT-4o with code execution."""
+    """Run quantitative analysis via Claude with code execution."""
     name = client["name"]
     income = client.get("employment_income", 0)
     province = client.get("province", "")
@@ -106,7 +106,7 @@ RECENT CONVERSATION HISTORY:
 """
 
     try:
-        result = await call_gpt4o_json(SYSTEM_PROMPT, user_message)
+        result = await call_claude_json(SYSTEM_PROMPT, user_message)
 
         python_code = result.get("python_code", "")
         if python_code:

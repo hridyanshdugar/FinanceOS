@@ -1,16 +1,18 @@
 """
-LLM client wrappers for Claude (Anthropic) and GPT-4o (OpenAI).
-Claude: orchestration, empathy, context analysis, draft messages, compliance.
-GPT-4o: quantitative analysis, Python code generation, math reasoning.
+LLM client wrapper for Claude (Anthropic).
+Haiku 3.5 handles fast routing and classification tasks.
+Sonnet 4 handles substantive agent work and user-facing output.
 """
 from __future__ import annotations
 
 import json
 import asyncio
 from functools import lru_cache
-from typing import Optional
 
-from config import ANTHROPIC_API_KEY, OPENAI_API_KEY
+from config import ANTHROPIC_API_KEY
+
+MODEL_HAIKU = "claude-haiku-3-5-20241022"
+MODEL_SONNET = "claude-sonnet-4-20250514"
 
 
 @lru_cache()
@@ -19,16 +21,10 @@ def _get_anthropic_client():
     return Anthropic(api_key=ANTHROPIC_API_KEY)
 
 
-@lru_cache()
-def _get_openai_client():
-    from openai import OpenAI
-    return OpenAI(api_key=OPENAI_API_KEY)
-
-
 async def call_claude(
     system: str,
     user_message: str,
-    model: str = "claude-sonnet-4-20250514",
+    model: str = MODEL_SONNET,
     max_tokens: int = 2048,
     temperature: float = 0.3,
 ) -> str:
@@ -48,39 +44,15 @@ async def call_claude(
 async def call_claude_json(
     system: str,
     user_message: str,
-    model: str = "claude-sonnet-4-20250514",
+    model: str = MODEL_SONNET,
     max_tokens: int = 2048,
     temperature: float = 0.2,
 ) -> dict:
     """Call Claude and parse the response as JSON."""
     raw = await call_claude(system, user_message, model, max_tokens, temperature)
-    # Strip markdown code fences if present
     text = raw.strip()
     if text.startswith("```"):
         first_newline = text.index("\n")
         last_fence = text.rfind("```")
         text = text[first_newline + 1:last_fence].strip()
     return json.loads(text)
-
-
-async def call_gpt4o_json(
-    system: str,
-    user_message: str,
-    model: str = "gpt-4o",
-    max_tokens: int = 2048,
-    temperature: float = 0.2,
-) -> dict:
-    """Call GPT-4o and parse the response as JSON."""
-    client = _get_openai_client()
-    response = await asyncio.to_thread(
-        client.chat.completions.create,
-        model=model,
-        max_tokens=max_tokens,
-        temperature=temperature,
-        response_format={"type": "json_object"},
-        messages=[
-            {"role": "system", "content": system},
-            {"role": "user", "content": user_message},
-        ],
-    )
-    return json.loads(response.choices[0].message.content)
