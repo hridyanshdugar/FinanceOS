@@ -64,6 +64,7 @@ export const useAppStore = create<AppState>((set) => ({
   setSelectedClientId: (id) =>
     set({
       selectedClientId: id,
+      clientDetail: null,
       conversation: [],
       artifactOpen: false,
       currentAnalysis: null,
