@@ -78,11 +78,11 @@ async def run_context_agent(
     agent_results_section = ""
     if quant_result and quant_result.get("summary"):
         agent_results_section += f"\nQUANT AGENT RESULTS:\n  Summary: {quant_result['summary']}\n  Details: {quant_result.get('details', '')[:500]}\n"
-    if compliance_result:
-        status = compliance_result.get("status", "clear")
+    if compliance_result and compliance_result.get("status", "clear") != "clear":
         items = compliance_result.get("items", [])
-        items_text = "\n".join(f"  - {i.get('message', '')}" for i in items[:5]) if items else "  No issues."
-        agent_results_section += f"\nCOMPLIANCE AGENT RESULTS (status: {status}):\n{items_text}\n"
+        items_text = "\n".join(f"  - {i.get('message', '')}" for i in items[:5])
+        if items_text:
+            agent_results_section += f"\nCOMPLIANCE AGENT RESULTS (status: {compliance_result['status']}):\n{items_text}\n"
     if researcher_result and researcher_result.get("summary"):
         suggestions = researcher_result.get("suggestions", [])
         suggestions_text = "\n".join(f"  - {s.get('ticker', '')}: {s.get('rationale', '')[:100]}" for s in suggestions[:5])
