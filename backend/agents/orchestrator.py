@@ -207,21 +207,24 @@ async def _classify_query(query: str, recent_chat: list = None, client: dict = N
             chat_lines = [f"  [{m['role']}]: {m['content'][:150]}" for m in reversed(recent_chat[:6])]
             extra_context += f"\n\nRecent conversation:\n" + "\n".join(chat_lines)
         result = await call_claude_json(ROUTING_PROMPT, f"Advisor's message: {query}{extra_context}", model=MODEL_HAIKU)
-        if "agents" not in result:
-            result["agents"] = ["context", "quant", "compliance", "researcher"]
-        result["direct_answer"] = result.get("direct_answer", False)
         result["rag_update"] = result.get("rag_update", False)
         result["rag_entries"] = result.get("rag_entries", [])
         result["rag_delete"] = result.get("rag_delete", False)
         result["rag_delete_keywords"] = result.get("rag_delete_keywords", [])
-        return result
+
+        if result["rag_update"] or result["rag_delete"]:
+            result["agents"] = []
+            result["direct_answer"] = False
+            return result
     except Exception:
-        return {
-            "agents": ["context", "quant", "compliance", "researcher"],
-            "direct_answer": False, "rag_update": False, "rag_entries": [],
-            "rag_delete": False, "rag_delete_keywords": [],
-            "reasoning": "classification failed, dispatching all",
-        }
+        pass
+
+    return {
+        "agents": ["context", "quant", "compliance", "researcher"],
+        "direct_answer": False, "rag_update": False, "rag_entries": [],
+        "rag_delete": False, "rag_delete_keywords": [],
+        "reasoning": "dispatching all agents",
+    }
 
 
 async def _direct_response(ws: WebSocket, client: dict, accounts: list, documents: list, rag_entries: list, recent_chat: list, query: str) -> str:
