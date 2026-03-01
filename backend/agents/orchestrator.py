@@ -426,29 +426,27 @@ async def handle_chat_message(ws: WebSocket, message: dict):
         })
         return
 
-    await send_to(ws, {"type": "thinking", "payload": {"step": f"Dispatching {len(needed_agents)} agent{'s' if len(needed_agents) != 1 else ''}..."}})
-
     from agents.context_agent import run_context_agent
     from agents.quant_agent import run_quant_agent
     from agents.compliance_agent import run_compliance_agent
     from agents.researcher_agent import run_researcher_agent
 
-    agent_map = {
-        "context": (run_context_agent, f"Reading {client['name']}'s profile, knowledge base, documents, and conversation history"),
+    parallel_agents = {
         "quant": (run_quant_agent, f"Running financial calculations on {client['name']}'s accounts and tax situation"),
         "compliance": (run_compliance_agent, f"Checking CRA rules, CIRO suitability, and regulatory limits for {client['name']}"),
         "researcher": (run_researcher_agent, f"Researching suitable investments for {client['name']}'s {client.get('risk_profile', 'balanced')} profile"),
     }
 
+    parallel_needed = [a for a in needed_agents if a in parallel_agents]
+    await send_to(ws, {"type": "thinking", "payload": {"step": f"Dispatching {len(parallel_needed)} agent{'s' if len(parallel_needed) != 1 else ''}..."}})
+
     agent_tasks_list = []
     agent_task_ids = {}
 
-    for agent_name in needed_agents:
-        if agent_name not in agent_map:
-            continue
+    for agent_name in parallel_needed:
         tid = str(uuid.uuid4())
         agent_task_ids[agent_name] = tid
-        fn, description = agent_map[agent_name]
+        fn, description = parallel_agents[agent_name]
 
         await send_to(ws, {
             "type": "agent_dispatch",
@@ -470,13 +468,34 @@ async def handle_chat_message(ws: WebSocket, message: dict):
     results = await asyncio.gather(*agent_tasks_list)
 
     result_map = {}
-    for i, agent_name in enumerate(n for n in needed_agents if n in agent_map):
+    for i, agent_name in enumerate(parallel_needed):
         result_map[agent_name] = results[i]
 
-    context_result = result_map.get("context")
     quant_result = result_map.get("quant")
     compliance_result = result_map.get("compliance")
     researcher_result = result_map.get("researcher")
+
+    # Context agent runs last so it can incorporate other agents' results into the draft email
+    context_tid = str(uuid.uuid4())
+    agent_task_ids["context"] = context_tid
+    await send_to(ws, {
+        "type": "agent_dispatch",
+        "agent": "context",
+        "client_id": client_id,
+        "task_id": context_tid,
+        "payload": {"description": f"Drafting personalized email for {client['name']} with analysis results"},
+    })
+    conn.execute(
+        "INSERT INTO agent_tasks (id, client_id, agent_type, status, input_data, created_at) VALUES (?,?,?,?,?,?)",
+        (context_tid, client_id, "context", "running", json.dumps({"query": content}), datetime.now().isoformat()),
+    )
+    conn.commit()
+
+    context_result = await _run_agent_with_updates(
+        ws, context_tid, "context", client_id, run_context_agent,
+        client, accounts, documents, recent_chat, content, conn,
+        quant_result, compliance_result, researcher_result,
+    )
 
     await send_to(ws, {"type": "thinking", "payload": {"step": "Synthesizing results..."}})
 

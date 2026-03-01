@@ -14,11 +14,12 @@ Your job is to analyze all available client context and produce two things:
 2. A personalized draft email to the client, written as if from the advisor "Alex."
 
 Rules:
+- You will receive analysis results from other specialist agents (quant calculations, compliance checks, investment research). INCORPORATE their findings into the draft email — reference specific numbers, recommendations, and compliance notes.
 - The draft message must be empathetic, warm, and reference specific personal details (goals, life events, past conversations).
-- Never fabricate facts. Only reference information present in the provided context.
+- Never fabricate facts. Only reference information present in the provided context and agent results.
 - If information is missing, say so — never guess account balances or contribution room.
 - The tone should match the client's communication style from past chats.
-- Keep the draft concise (under 150 words) and end with an invitation to chat.
+- Keep the draft concise (under 200 words) and end with an invitation to chat.
 - Sign off as "Alex."
 
 Respond in JSON with this exact structure:
@@ -42,6 +43,9 @@ async def run_context_agent(
     recent_chat: list[dict],
     query: str,
     conn,
+    quant_result: dict = None,
+    compliance_result: dict = None,
+    researcher_result: dict = None,
 ) -> dict:
     """Analyze client context via Claude and generate a personalized draft message."""
     name = client["name"]
@@ -71,6 +75,19 @@ async def run_context_agent(
 
     rag_lines = [f"  - {entry}" for entry in rag_context] if rag_context else ["  No knowledge base entries."]
 
+    agent_results_section = ""
+    if quant_result and quant_result.get("summary"):
+        agent_results_section += f"\nQUANT AGENT RESULTS:\n  Summary: {quant_result['summary']}\n  Details: {quant_result.get('details', '')[:500]}\n"
+    if compliance_result:
+        status = compliance_result.get("status", "clear")
+        items = compliance_result.get("items", [])
+        items_text = "\n".join(f"  - {i.get('message', '')}" for i in items[:5]) if items else "  No issues."
+        agent_results_section += f"\nCOMPLIANCE AGENT RESULTS (status: {status}):\n{items_text}\n"
+    if researcher_result and researcher_result.get("summary"):
+        suggestions = researcher_result.get("suggestions", [])
+        suggestions_text = "\n".join(f"  - {s.get('ticker', '')}: {s.get('rationale', '')[:100]}" for s in suggestions[:5])
+        agent_results_section += f"\nRESEARCHER AGENT RESULTS:\n  Summary: {researcher_result['summary']}\n{suggestions_text}\n  Account strategy: {researcher_result.get('account_strategy', '')[:200]}\n"
+
     user_message = f"""ADVISOR'S QUESTION: {query}
 
 CLIENT PROFILE:
@@ -94,7 +111,7 @@ TAX DOCUMENTS:
 
 RECENT CONVERSATION HISTORY:
 {chr(10).join(chat_lines) if chat_lines else '  No prior conversations.'}
-"""
+{agent_results_section}"""
 
     try:
         result = await call_claude_json(SYSTEM_PROMPT, user_message)
