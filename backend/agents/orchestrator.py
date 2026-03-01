@@ -220,20 +220,23 @@ async def _classify_query(query: str) -> dict:
                 "reasoning": "keyword match: knowledge base update",
             }
 
-    if _is_research_query(query):
-        return {
-            "agents": ["context", "researcher"], "direct_answer": False,
-            "rag_update": False, "rag_entries": [],
-            "rag_delete": False, "rag_delete_keywords": [],
-            "reasoning": "keyword match: investment/research query — researcher only",
-        }
+    is_research = _is_research_query(query)
+    is_quant = _is_quant_query(query)
 
-    if _is_quant_query(query):
+    if is_research or is_quant:
+        agents = ["context"]
+        reasons = []
+        if is_quant:
+            agents.append("quant")
+            reasons.append("calculation/math")
+        if is_research:
+            agents.append("researcher")
+            reasons.append("investment/research")
         return {
-            "agents": ["context", "quant"], "direct_answer": False,
+            "agents": agents, "direct_answer": False,
             "rag_update": False, "rag_entries": [],
             "rag_delete": False, "rag_delete_keywords": [],
-            "reasoning": "keyword match: calculation/math query — quant only",
+            "reasoning": f"keyword match: {' + '.join(reasons)} query",
         }
 
     try:
