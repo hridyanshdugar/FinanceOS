@@ -40,7 +40,7 @@ interface ClientRowProps {
 export function ClientRow({ client, isActive, onClick }: ClientRowProps) {
   const initials = getInitials(client.name);
   const colorClass = AVATAR_COLORS[getColorIndex(client.name)];
-  const hasAlert = (client.pending_alerts ?? 0) > 0;
+  const hasPendingRequests = (client.pending_requests ?? 0) > 0;
 
   return (
     <button
@@ -61,7 +61,7 @@ export function ClientRow({ client, isActive, onClick }: ClientRowProps) {
           {client.province} · {client.risk_profile}
         </p>
       </div>
-      {hasAlert && (
+      {hasPendingRequests && (
         <span className="h-2 w-2 rounded-full bg-amber-500 shrink-0" />
       )}
     </button>

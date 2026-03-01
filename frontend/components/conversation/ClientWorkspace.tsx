@@ -36,6 +36,8 @@ export function ClientWorkspace() {
     activePanel,
     setActivePanel,
     alerts,
+    clients,
+    setClients,
   } = useAppStore();
 
   const [showCompleted, setShowCompleted] = useState(false);
@@ -108,12 +110,19 @@ export function ClientWorkspace() {
   const handleCompleteRequest = async (messageId: string) => {
     try {
       await api.completeRequest(selectedClientId!, messageId);
-      setClientDetail({
-        ...clientDetail,
-        chat_history: clientDetail.chat_history.map((m) =>
-          m.id === messageId ? { ...m, status: "completed" as const } : m
-        ),
-      });
+      const updatedHistory = clientDetail.chat_history.map((m) =>
+        m.id === messageId ? { ...m, status: "completed" as const } : m
+      );
+      setClientDetail({ ...clientDetail, chat_history: updatedHistory });
+
+      const remainingPending = updatedHistory.filter(
+        (m) => m.role === "client" && m.status !== "completed"
+      ).length;
+      setClients(
+        clients.map((c) =>
+          c.id === selectedClientId ? { ...c, pending_requests: remainingPending } : c
+        )
+      );
     } catch { /* ignore */ }
   };
 

@@ -21,11 +21,11 @@ def list_clients() -> list[dict]:
             (c["id"],),
         ).fetchone()
         c["total_portfolio"] = accts["total"] if accts else 0
-        alert_count = conn.execute(
-            "SELECT COUNT(*) as cnt FROM alerts WHERE client_id = ? AND status = 'pending'",
+        req_count = conn.execute(
+            "SELECT COUNT(*) as cnt FROM chat_history WHERE client_id = ? AND role = 'client' AND status != 'completed'",
             (c["id"],),
         ).fetchone()
-        c["pending_alerts"] = alert_count["cnt"] if alert_count else 0
+        c["pending_requests"] = req_count["cnt"] if req_count else 0
     conn.close()
     return clients
 

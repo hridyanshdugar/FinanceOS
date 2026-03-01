@@ -182,7 +182,7 @@ export function MorningBriefing() {
                       {client.province} · ${(client.total_portfolio ?? 0).toLocaleString("en-CA")}
                     </p>
                   </div>
-                  {(client.pending_alerts ?? 0) > 0 && (
+                  {(client.pending_requests ?? 0) > 0 && (
                     <div className="h-2 w-2 rounded-full bg-amber-500 shrink-0" />
                   )}
                 </button>

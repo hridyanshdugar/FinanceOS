@@ -15,7 +15,7 @@ export interface Client {
   onboarded_at: string;
   advisor_notes: string;
   total_portfolio?: number;
-  pending_alerts?: number;
+  pending_requests?: number;
 }
 
 export interface Account {
