@@ -43,6 +43,7 @@ export interface ChatMessage {
   client_id: string;
   role: "advisor" | "client" | "system";
   content: string;
+  status: "pending" | "completed";
   created_at: string;
 }
 

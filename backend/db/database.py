@@ -24,6 +24,11 @@ def init_db():
     conn = get_connection()
     with open(SCHEMA_PATH, "r") as f:
         conn.executescript(f.read())
+    # Migration: add status column to chat_history if missing
+    cols = [row[1] for row in conn.execute("PRAGMA table_info(chat_history)").fetchall()]
+    if "status" not in cols:
+        conn.execute("ALTER TABLE chat_history ADD COLUMN status TEXT NOT NULL DEFAULT 'pending'")
+        conn.commit()
     conn.close()
 
 

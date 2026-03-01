@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS chat_history (
     client_id TEXT NOT NULL REFERENCES clients(id),
     role TEXT NOT NULL CHECK (role IN ('advisor', 'client', 'system')),
     content TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'completed')),
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

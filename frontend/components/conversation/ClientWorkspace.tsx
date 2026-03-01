@@ -10,6 +10,7 @@ import {
   TrendingUp,
   Shield,
   ChevronRight,
+  ChevronDown,
   User,
   Briefcase,
   MapPin,
@@ -17,6 +18,8 @@ import {
   Brain,
   Plus,
   X,
+  CheckCircle2,
+  History,
 } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 import { api } from "@/lib/api";
@@ -90,13 +93,28 @@ export function ClientWorkspace() {
   }
 
   const { client } = clientDetail;
+  const [showCompleted, setShowCompleted] = useState(false);
   const clientAlerts = alerts.filter(
     (a) => a.client_id === selectedClientId && a.status === "pending"
   );
-  const clientNotes = clientDetail.chat_history.filter((m) => m.role === "client");
+  const allClientRequests = clientDetail.chat_history.filter((m) => m.role === "client");
+  const pendingRequests = allClientRequests.filter((m) => m.status !== "completed");
+  const completedRequests = allClientRequests.filter((m) => m.status === "completed");
   const totalPortfolio = clientDetail.total_portfolio;
 
-  const latestRequest = clientNotes.length > 0 ? clientNotes[clientNotes.length - 1] : null;
+  const latestRequest = pendingRequests.length > 0 ? pendingRequests[pendingRequests.length - 1] : null;
+
+  const handleCompleteRequest = async (messageId: string) => {
+    try {
+      await api.completeRequest(selectedClientId!, messageId);
+      setClientDetail({
+        ...clientDetail,
+        chat_history: clientDetail.chat_history.map((m) =>
+          m.id === messageId ? { ...m, status: "completed" as const } : m
+        ),
+      });
+    } catch { /* ignore */ }
+  };
 
   if (activePanel === "chat") {
     return (
@@ -130,7 +148,7 @@ export function ClientWorkspace() {
           <div className="border-b border-amber-100 bg-amber-50/60 px-6 py-3">
             <div className="max-w-3xl mx-auto flex items-start gap-3">
               <Mail className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-              <div>
+              <div className="flex-1 min-w-0">
                 <p className="text-[11px] font-semibold text-amber-700 uppercase tracking-wider mb-0.5">
                   Client Request
                 </p>
@@ -138,6 +156,14 @@ export function ClientWorkspace() {
                   {latestRequest.content}
                 </p>
               </div>
+              <button
+                onClick={() => handleCompleteRequest(latestRequest.id)}
+                className="shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium
+                         text-amber-700 hover:bg-amber-100 transition-colors"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Done
+              </button>
             </div>
           </div>
         )}
@@ -300,25 +326,86 @@ export function ClientWorkspace() {
           {/* Right column: Client Notes + Alerts + Quick Actions */}
           <div className="space-y-4">
             {/* Client Requests */}
-            {clientNotes.length > 0 && (
+            {allClientRequests.length > 0 && (
               <div className="bg-card border border-border rounded-2xl p-5">
                 <div className="flex items-center gap-2 mb-4">
                   <Mail className="h-4 w-4 text-primary" />
                   <h3 className="text-sm font-semibold text-foreground">Client Requests</h3>
+                  {pendingRequests.length > 0 && (
+                    <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-medium">
+                      {pendingRequests.length} pending
+                    </span>
+                  )}
                 </div>
-                <div className="space-y-3">
-                  {clientNotes.map((note) => (
-                    <div key={note.id} className="p-3 rounded-xl bg-amber-50/50 border border-amber-100">
-                      <p className="text-sm text-foreground leading-relaxed">{note.content}</p>
-                      <p className="text-[10px] text-muted-foreground mt-2">
-                        {new Date(note.created_at).toLocaleDateString("en-CA", {
-                          month: "short",
-                          day: "numeric",
-                        })}
-                      </p>
-                    </div>
-                  ))}
-                </div>
+
+                {/* Pending requests */}
+                {pendingRequests.length > 0 ? (
+                  <div className="space-y-2.5">
+                    {pendingRequests.map((note) => (
+                      <div key={note.id} className="p-3 rounded-xl bg-amber-50/50 border border-amber-100">
+                        <p className="text-sm text-foreground leading-relaxed">{note.content}</p>
+                        <div className="flex items-center justify-between mt-2.5">
+                          <p className="text-[10px] text-muted-foreground">
+                            {new Date(note.created_at).toLocaleDateString("en-CA", {
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </p>
+                          <button
+                            onClick={() => handleCompleteRequest(note.id)}
+                            className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium
+                                     text-amber-700 hover:bg-amber-100 transition-colors"
+                          >
+                            <CheckCircle2 className="h-3 w-3" />
+                            Mark done
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                    All requests addressed
+                  </div>
+                )}
+
+                {/* Completed requests toggle */}
+                {completedRequests.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-border">
+                    <button
+                      onClick={() => setShowCompleted(!showCompleted)}
+                      className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors w-full"
+                    >
+                      {showCompleted ? (
+                        <ChevronDown className="h-3.5 w-3.5" />
+                      ) : (
+                        <History className="h-3.5 w-3.5" />
+                      )}
+                      {showCompleted ? "Hide" : "Show"} {completedRequests.length} completed
+                    </button>
+                    {showCompleted && (
+                      <div className="mt-2.5 space-y-2">
+                        {completedRequests.map((note) => (
+                          <div key={note.id} className="p-3 rounded-xl bg-muted/50 border border-border">
+                            <div className="flex items-start gap-2">
+                              <CheckCircle2 className="h-3.5 w-3.5 text-green-500 mt-0.5 shrink-0" />
+                              <p className="text-sm text-muted-foreground leading-relaxed line-through decoration-muted-foreground/30">
+                                {note.content}
+                              </p>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground mt-2 pl-5">
+                              {new Date(note.created_at).toLocaleDateString("en-CA", {
+                                month: "short",
+                                day: "numeric",
+                              })}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 

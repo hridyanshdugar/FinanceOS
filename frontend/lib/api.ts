@@ -15,6 +15,8 @@ export const api = {
   getClients: () => fetchJSON<Record<string, unknown>[]>("/api/clients"),
   getClient: (id: string) => fetchJSON<Record<string, unknown>>(`/api/clients/${id}`),
   clearClientChat: (id: string) => fetchJSON<Record<string, unknown>>(`/api/clients/${id}/chat`, { method: "DELETE" }),
+  completeRequest: (clientId: string, messageId: string) =>
+    fetchJSON<Record<string, unknown>>(`/api/clients/${clientId}/requests/${messageId}`, { method: "PATCH" }),
   getAlerts: (status = "pending") => fetchJSON<Record<string, unknown>[]>(`/api/alerts?status=${status}`),
   actOnTask: (taskId: string, action: string, note = "") =>
     fetchJSON<Record<string, unknown>>(`/api/agents/tasks/${taskId}/action`, {

@@ -100,6 +100,20 @@ def clear_chat_history(client_id: str) -> dict:
     return {"status": "cleared"}
 
 
+@router.patch("/{client_id}/requests/{message_id}")
+def complete_client_request(client_id: str, message_id: str) -> dict:
+    conn = get_connection()
+    cur = conn.execute(
+        "UPDATE chat_history SET status = 'completed' WHERE id = ? AND client_id = ? AND role = 'client'",
+        (message_id, client_id),
+    )
+    conn.commit()
+    conn.close()
+    if cur.rowcount == 0:
+        raise HTTPException(status_code=404, detail="Client request not found")
+    return {"status": "completed"}
+
+
 class RagEntryRequest(BaseModel):
     content: str
 
