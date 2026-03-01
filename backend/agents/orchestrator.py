@@ -71,41 +71,6 @@ RAG_DELETE_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
-RESEARCH_PATTERN = re.compile(
-    r"(stock|etf|invest|portfolio|asset\s*allocation|rebalance|what\s+to\s+buy|what\s+to\s+sell"
-    r"|suggest.*investment|recommend.*stock|recommend.*etf|best\s+stocks|best\s+etfs"
-    r"|stock\s+picks?|look\s*up.*stock|look\s*up.*invest|look\s*up.*etf"
-    r"|researcher|research\s+agent|suitable\s+investment|which\s+stocks?|which\s+etfs?)",
-    re.IGNORECASE,
-)
-
-
-QUANT_PATTERN = re.compile(
-    r"(calculat|how\s+much\s+(will|would|do|does|can|could|should|is|are|tax)"
-    r"|mortgage\s+(payment|amortiz|rate|calculat|compar|breakeven|penalty)"
-    r"|return\s+on\s+investment|rate\s+of\s+return|compound|annualized\s+return"
-    r"|compar(e|ing|ison)\b.*(etf|fund|account|rrsp|tfsa|rate|return|option)"
-    r"|project(ion|ed)?\b|forecast|breakeven|break\s*even|pay\s*off"
-    r"|tax\s+(sav|implic|impact|bracket|refund|ow|efficien|compar)"
-    r"|contribution\s+(room|limit|optim|max)"
-    r"|withdrawal\s+(strateg|tax|rate|amount|schedul)"
-    r"|rrsp\s+vs\s+tfsa|tfsa\s+vs\s+rrsp|rrsp\s+or\s+tfsa|tfsa\s+or\s+rrsp"
-    r"|run\s+the\s+(number|math|calc)|crunch\s+the\s+number"
-    r"|what('s|\s+is)\s+the\s+(tax|interest|payment|total|difference|saving|cost)"
-    r"|quant\s+agent|quantitative)",
-    re.IGNORECASE,
-)
-
-
-def _is_research_query(query: str) -> bool:
-    """Fast keyword check for investment/research queries that only need the researcher agent."""
-    return bool(RESEARCH_PATTERN.search(query))
-
-
-def _is_quant_query(query: str) -> bool:
-    """Fast keyword check for calculation/math queries that only need the quant agent."""
-    return bool(QUANT_PATTERN.search(query))
-
 
 def _is_rag_update(query: str) -> bool:
     """Fast keyword check for obvious knowledge base update commands."""
@@ -219,25 +184,6 @@ async def _classify_query(query: str, recent_chat: list = None, client: dict = N
                 "rag_delete": False, "rag_delete_keywords": [],
                 "reasoning": "keyword match: knowledge base update",
             }
-
-    is_research = _is_research_query(query)
-    is_quant = _is_quant_query(query)
-
-    if is_research or is_quant:
-        agents = ["context"]
-        reasons = []
-        if is_quant:
-            agents.append("quant")
-            reasons.append("calculation/math")
-        if is_research:
-            agents.append("researcher")
-            reasons.append("investment/research")
-        return {
-            "agents": agents, "direct_answer": False,
-            "rag_update": False, "rag_entries": [],
-            "rag_delete": False, "rag_delete_keywords": [],
-            "reasoning": f"keyword match: {' + '.join(reasons)} query",
-        }
 
     try:
         from services.llm import call_claude_json, MODEL_HAIKU
