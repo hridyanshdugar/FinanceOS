@@ -198,7 +198,7 @@ def _fuzzy_match_entries(rag_entries: list, keywords: list) -> list:
     return matched_ids
 
 
-async def _classify_query(query: str) -> dict:
+async def _classify_query(query: str, recent_chat: list = None, client: dict = None, rag_entries: list = None) -> dict:
     """Use Claude to determine which agents to dispatch, with fast-path for RAG updates/deletes."""
     if _is_rag_delete(query):
         keywords = _extract_rag_delete_keywords(query)
@@ -241,7 +241,26 @@ async def _classify_query(query: str) -> dict:
 
     try:
         from services.llm import call_claude_json, MODEL_HAIKU
-        result = await call_claude_json(ROUTING_PROMPT, f"Advisor's message: {query}", model=MODEL_HAIKU)
+        extra_context = ""
+        if client:
+            goals = client.get("goals", [])
+            notes = client.get("advisor_notes", "")
+            goals_str = ", ".join(goals) if goals else "None"
+            profile_parts = [
+                f"\n\nClient profile (for understanding what 'the client's request' etc. refers to):",
+                f"  Name: {client.get('name', '')}",
+                f"  Goals: {goals_str}",
+            ]
+            if notes:
+                profile_parts.append(f"  Advisor notes: {notes[:300]}")
+            extra_context += "\n".join(profile_parts)
+        if rag_entries:
+            rag_lines = [f"  - {r['content'][:150]}" for r in rag_entries[:8]]
+            extra_context += f"\n\nKnowledge base entries:\n" + "\n".join(rag_lines)
+        if recent_chat:
+            chat_lines = [f"  [{m['role']}]: {m['content'][:150]}" for m in reversed(recent_chat[:6])]
+            extra_context += f"\n\nRecent conversation:\n" + "\n".join(chat_lines)
+        result = await call_claude_json(ROUTING_PROMPT, f"Advisor's message: {query}{extra_context}", model=MODEL_HAIKU)
         if "agents" not in result:
             result["agents"] = ["context", "quant", "compliance", "researcher"]
         result["direct_answer"] = result.get("direct_answer", False)
@@ -351,7 +370,7 @@ async def handle_chat_message(ws: WebSocket, message: dict):
 
     await send_to(ws, {"type": "thinking", "payload": {"step": "Analyzing your question..."}})
 
-    routing = await _classify_query(content)
+    routing = await _classify_query(content, recent_chat, client, rag_entries)
     needed_agents = routing.get("agents", [])
     is_direct = routing.get("direct_answer", False)
     is_rag_update = routing.get("rag_update", False)
