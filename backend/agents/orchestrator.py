@@ -31,7 +31,8 @@ Available agents:
 
 Rules:
 - If the question is a simple lookup (e.g., "show me the knowledge base", "what accounts does this client have", "summarize this client"), return NO agents — the system can answer directly from the database.
-- If the advisor wants to UPDATE the knowledge base (e.g., "remember that...", "note that...", "add to knowledge base...", "she prefers...", "he mentioned...", "update: ..."), set "rag_update" to true and extract the entries to add in "rag_entries" as a list of concise strings. Do NOT dispatch agents for this.
+- If the advisor wants to ADD to the knowledge base (e.g., "remember that...", "note that...", "add to knowledge base...", "she prefers...", "he mentioned...", "update: ..."), set "rag_update" to true and extract the entries to add in "rag_entries" as a list of concise strings. Do NOT dispatch agents for this.
+- If the advisor wants to REMOVE/DELETE from the knowledge base (e.g., "remove the RESP info", "delete the note about...", "remove from knowledge base...", "take out the part about..."), set "rag_delete" to true and provide "rag_delete_keywords" as a list of short keyword phrases describing what to remove. Do NOT dispatch agents for this.
 - If the question needs empathy, personalization, or a draft email, include "context".
 - If the question involves calculations, comparisons, or projections, include "quant".
 - If the question touches on regulations, limits, or compliance, include "compliance".
@@ -39,13 +40,16 @@ Rules:
 - Only include agents that are genuinely needed. Most questions need 1-2 agents, not all 4.
 
 Respond in JSON only:
-{"agents": ["context", "quant", "compliance", "researcher"], "reasoning": "brief explanation", "direct_answer": false, "rag_update": false, "rag_entries": []}
+{"agents": ["context", "quant", "compliance", "researcher"], "reasoning": "brief explanation", "direct_answer": false, "rag_update": false, "rag_entries": [], "rag_delete": false, "rag_delete_keywords": []}
 
 If NO agents are needed (simple lookup), respond:
-{"agents": [], "reasoning": "brief explanation", "direct_answer": true, "rag_update": false, "rag_entries": []}
+{"agents": [], "reasoning": "brief explanation", "direct_answer": true, "rag_update": false, "rag_entries": [], "rag_delete": false, "rag_delete_keywords": []}
 
-If the advisor wants to update the knowledge base, respond:
-{"agents": [], "reasoning": "brief explanation", "direct_answer": false, "rag_update": true, "rag_entries": ["concise fact 1", "concise fact 2"]}"""
+If the advisor wants to add to the knowledge base, respond:
+{"agents": [], "reasoning": "brief explanation", "direct_answer": false, "rag_update": true, "rag_entries": ["concise fact 1", "concise fact 2"], "rag_delete": false, "rag_delete_keywords": []}
+
+If the advisor wants to remove from the knowledge base, respond:
+{"agents": [], "reasoning": "brief explanation", "direct_answer": false, "rag_update": false, "rag_entries": [], "rag_delete": true, "rag_delete_keywords": ["RESP", "contribution room"]}"""
 
 
 RAG_PREFIXES = [
@@ -54,13 +58,36 @@ RAG_PREFIXES = [
     "don't forget", "log that", "mark that",
 ]
 
+RAG_DELETE_PREFIXES = [
+    "remove from knowledge base", "delete from knowledge base",
+    "remove from kb", "delete from kb",
+    "remove the note about", "delete the note about",
+    "take out the part about", "remove the entry about",
+]
+
+RAG_DELETE_PATTERNS = re.compile(
+    r"(remove|delete|take out|clear|drop|get rid of)\b.*(knowledge base|kb|from it|from the kb|note about|entry about|info about|information about)",
+    re.IGNORECASE,
+)
+
 def _is_rag_update(query: str) -> bool:
     """Fast keyword check for obvious knowledge base update commands."""
+    if _is_rag_delete(query):
+        return False
     lower = query.lower().strip()
     for prefix in RAG_PREFIXES:
         if lower.startswith(prefix):
             return True
     return bool(re.match(r"^(he|she|they|client|this client)\s+(mentioned|said|told|prefers?|wants?|needs?|is |has |just )", lower))
+
+
+def _is_rag_delete(query: str) -> bool:
+    """Fast keyword check for obvious knowledge base deletion commands."""
+    lower = query.lower().strip()
+    for prefix in RAG_DELETE_PREFIXES:
+        if lower.startswith(prefix):
+            return True
+    return bool(RAG_DELETE_PATTERNS.search(lower))
 
 
 def _extract_rag_entries(query: str) -> list:
@@ -72,17 +99,88 @@ def _extract_rag_entries(query: str) -> list:
             if remainder:
                 return [remainder]
             break
-    # Fall back to using the whole message minus obvious prefixes
     cleaned = re.sub(r"^(he|she|they|client|this client)\s+", "", query.strip(), flags=re.IGNORECASE)
     return [cleaned] if cleaned else []
 
 
+def _extract_rag_delete_keywords(query: str) -> list:
+    """Extract keywords describing what to delete from the knowledge base."""
+    lower = query.lower().strip()
+    for prefix in RAG_DELETE_PREFIXES:
+        if lower.startswith(prefix):
+            remainder = query.strip()[len(prefix):].strip().lstrip(":").strip()
+            if remainder:
+                return [remainder]
+            break
+    cleaned = re.sub(
+        r"^(update the knowledge base and |update the kb and |update kb and )?"
+        r"(remove|delete|take out|clear|drop|get rid of)\s+",
+        "", query.strip(), flags=re.IGNORECASE,
+    )
+    cleaned = re.sub(r"\s*(from (the )?(knowledge base|kb|it))\.?$", "", cleaned, flags=re.IGNORECASE).strip()
+    return [cleaned] if cleaned else []
+
+
+async def _match_rag_entries_for_deletion(rag_entries: list, keywords: list) -> list:
+    """Use Claude to determine which existing RAG entries match the deletion keywords."""
+    if not rag_entries or not keywords:
+        return []
+
+    from services.llm import call_claude_json
+
+    entries_text = "\n".join(f"  [{e['id']}]: {e['content']}" for e in rag_entries)
+    keywords_text = ", ".join(keywords)
+
+    system = (
+        "You are a helper that matches knowledge base entries to a deletion request. "
+        "Given a list of entries (with IDs) and the advisor's description of what to remove, "
+        "return the IDs of entries that should be deleted. Match generously — if an entry is "
+        "related to the topic the advisor wants removed, include it.\n\n"
+        "Respond in JSON only: {\"delete_ids\": [\"id1\", \"id2\"]}"
+    )
+    user_msg = f"Advisor wants to remove: {keywords_text}\n\nExisting entries:\n{entries_text}"
+
+    try:
+        result = await call_claude_json(system, user_msg)
+        return result.get("delete_ids", [])
+    except Exception:
+        return _fuzzy_match_entries(rag_entries, keywords)
+
+
+def _fuzzy_match_entries(rag_entries: list, keywords: list) -> list:
+    """Simple keyword-based fallback matching for entry deletion."""
+    matched_ids = []
+    for entry in rag_entries:
+        content_lower = entry["content"].lower()
+        for kw in keywords:
+            kw_words = kw.lower().split()
+            if any(word in content_lower for word in kw_words if len(word) > 2):
+                matched_ids.append(entry["id"])
+                break
+    return matched_ids
+
+
 async def _classify_query(query: str) -> dict:
-    """Use Claude to determine which agents to dispatch, with fast-path for RAG updates."""
+    """Use Claude to determine which agents to dispatch, with fast-path for RAG updates/deletes."""
+    if _is_rag_delete(query):
+        keywords = _extract_rag_delete_keywords(query)
+        if keywords:
+            return {
+                "agents": [], "direct_answer": False,
+                "rag_update": False, "rag_entries": [],
+                "rag_delete": True, "rag_delete_keywords": keywords,
+                "reasoning": "keyword match: knowledge base deletion",
+            }
+
     if _is_rag_update(query):
         entries = _extract_rag_entries(query)
         if entries:
-            return {"agents": [], "direct_answer": False, "rag_update": True, "rag_entries": entries, "reasoning": "keyword match: knowledge base update"}
+            return {
+                "agents": [], "direct_answer": False,
+                "rag_update": True, "rag_entries": entries,
+                "rag_delete": False, "rag_delete_keywords": [],
+                "reasoning": "keyword match: knowledge base update",
+            }
 
     try:
         from services.llm import call_claude_json
@@ -92,9 +190,16 @@ async def _classify_query(query: str) -> dict:
         result["direct_answer"] = result.get("direct_answer", False)
         result["rag_update"] = result.get("rag_update", False)
         result["rag_entries"] = result.get("rag_entries", [])
+        result["rag_delete"] = result.get("rag_delete", False)
+        result["rag_delete_keywords"] = result.get("rag_delete_keywords", [])
         return result
     except Exception:
-        return {"agents": ["context", "quant", "compliance", "researcher"], "direct_answer": False, "rag_update": False, "rag_entries": [], "reasoning": "classification failed, dispatching all"}
+        return {
+            "agents": ["context", "quant", "compliance", "researcher"],
+            "direct_answer": False, "rag_update": False, "rag_entries": [],
+            "rag_delete": False, "rag_delete_keywords": [],
+            "reasoning": "classification failed, dispatching all",
+        }
 
 
 async def _direct_response(ws: WebSocket, client: dict, accounts: list, documents: list, rag_entries: list, recent_chat: list, query: str) -> str:
@@ -194,6 +299,50 @@ async def handle_chat_message(ws: WebSocket, message: dict):
     is_direct = routing.get("direct_answer", False)
     is_rag_update = routing.get("rag_update", False)
     rag_new_entries = routing.get("rag_entries", [])
+    is_rag_delete = routing.get("rag_delete", False)
+    rag_delete_keywords = routing.get("rag_delete_keywords", [])
+
+    if is_rag_delete and rag_delete_keywords:
+        from db.database import delete_client_rag
+        await send_to(ws, {"type": "thinking", "payload": {"step": f"Finding entries to remove from {client['name']}'s knowledge base..."}})
+
+        delete_ids = await _match_rag_entries_for_deletion(rag_entries, rag_delete_keywords)
+
+        removed = []
+        for entry_id in delete_ids:
+            entry = next((e for e in rag_entries if e["id"] == entry_id), None)
+            if entry and delete_client_rag(entry_id):
+                removed.append(entry)
+
+        if removed:
+            count = len(removed)
+            summary = (
+                f"Done — removed {count} {'entry' if count == 1 else 'entries'} from {client['name']}'s knowledge base:\n\n"
+                + "\n".join(f"- {e['content']}" for e in removed)
+            )
+        else:
+            summary = f"I couldn't find any matching entries in {client['name']}'s knowledge base to remove."
+
+        conn.execute(
+            "INSERT INTO chat_history (id, client_id, role, content, created_at) VALUES (?, ?, ?, ?, ?)",
+            (str(uuid.uuid4()), client_id, "system", summary, datetime.now().isoformat()),
+        )
+        conn.commit()
+        conn.close()
+
+        await send_to(ws, {
+            "type": "chat_response",
+            "client_id": client_id,
+            "task_id": task_id,
+            "payload": {"content": summary, "analysis": None},
+        })
+        if removed:
+            await send_to(ws, {
+                "type": "rag_deleted",
+                "client_id": client_id,
+                "payload": {"entry_ids": [e["id"] for e in removed]},
+            })
+        return
 
     if is_rag_update and rag_new_entries:
         from db.database import add_client_rag

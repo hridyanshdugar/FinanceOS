@@ -145,6 +145,18 @@ export function useWebSocket() {
         }
         break;
       }
+      case "rag_deleted": {
+        const deletedIds = (payload.entry_ids as string[]) || [];
+        if (clientDetail && deletedIds.length > 0) {
+          setClientDetail({
+            ...clientDetail,
+            rag_entries: (clientDetail.rag_entries || []).filter(
+              (e) => !deletedIds.includes(e.id)
+            ),
+          });
+        }
+        break;
+      }
       case "error": {
         setIsThinking(false);
         addMessage({
