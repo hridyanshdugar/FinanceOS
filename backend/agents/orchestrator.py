@@ -222,7 +222,7 @@ async def _classify_query(query: str) -> dict:
 
     if _is_research_query(query):
         return {
-            "agents": ["researcher"], "direct_answer": False,
+            "agents": ["context", "researcher"], "direct_answer": False,
             "rag_update": False, "rag_entries": [],
             "rag_delete": False, "rag_delete_keywords": [],
             "reasoning": "keyword match: investment/research query — researcher only",
@@ -230,7 +230,7 @@ async def _classify_query(query: str) -> dict:
 
     if _is_quant_query(query):
         return {
-            "agents": ["quant"], "direct_answer": False,
+            "agents": ["context", "quant"], "direct_answer": False,
             "rag_update": False, "rag_entries": [],
             "rag_delete": False, "rag_delete_keywords": [],
             "reasoning": "keyword match: calculation/math query — quant only",
