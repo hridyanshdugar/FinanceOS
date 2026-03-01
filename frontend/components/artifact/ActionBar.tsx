@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Check, Pencil, X } from "lucide-react";
+import { toast } from "sonner";
 import { useAppStore } from "@/lib/store";
 import { api } from "@/lib/api";
 
@@ -15,6 +16,9 @@ export function ActionBar() {
     setActing(true);
     try {
       await api.actOnTask(currentTaskId, action, note);
+      if (action === "approved") {
+        toast.success("Email sent successfully");
+      }
       setArtifactOpen(false);
       setCurrentAnalysis(null);
     } catch {
