@@ -71,6 +71,24 @@ RAG_DELETE_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
+KB_SHOW_PATTERNS = [
+    "show me the knowledge base", "show the knowledge base",
+    "show me the kb", "show the kb", "show kb",
+    "show knowledge base", "what's in the knowledge base",
+    "what is in the knowledge base", "what's in the kb",
+    "what is in the kb", "display the knowledge base",
+    "display knowledge base", "display the kb",
+    "list the knowledge base", "list knowledge base",
+    "view the knowledge base", "view knowledge base",
+    "open the knowledge base", "open knowledge base",
+]
+
+
+def _is_kb_show(query: str) -> bool:
+    """Fast keyword check for knowledge base display requests."""
+    lower = query.lower().strip().rstrip("?.,!")
+    return lower in KB_SHOW_PATTERNS or lower == "knowledge base"
+
 
 def _is_rag_update(query: str) -> bool:
     """Fast keyword check for obvious knowledge base update commands."""
@@ -165,6 +183,14 @@ def _fuzzy_match_entries(rag_entries: list, keywords: list) -> list:
 
 async def _classify_query(query: str, recent_chat: list = None, client: dict = None, rag_entries: list = None) -> dict:
     """Use Claude to determine which agents to dispatch, with fast-path for RAG updates/deletes."""
+    if _is_kb_show(query):
+        return {
+            "agents": [], "direct_answer": True,
+            "rag_update": False, "rag_entries": [],
+            "rag_delete": False, "rag_delete_keywords": [],
+            "reasoning": "keyword match: knowledge base display",
+        }
+
     if _is_rag_delete(query):
         keywords = _extract_rag_delete_keywords(query)
         if keywords:
@@ -326,6 +352,28 @@ async def handle_chat_message(ws: WebSocket, message: dict):
     rag_new_entries = routing.get("rag_entries", [])
     is_rag_delete = routing.get("rag_delete", False)
     rag_delete_keywords = routing.get("rag_delete_keywords", [])
+
+    if _is_kb_show(content):
+        rag_lines = [f"- {r['content']}" for r in rag_entries] if rag_entries else []
+        if rag_lines:
+            summary = f"Here's {client['name']}'s knowledge base ({len(rag_entries)} {'entry' if len(rag_entries) == 1 else 'entries'}):\n\n" + "\n".join(rag_lines)
+        else:
+            summary = f"{client['name']}'s knowledge base is empty. You can add entries by saying something like \"remember that...\" or \"note that...\"."
+
+        conn.execute(
+            "INSERT INTO chat_history (id, client_id, role, content, created_at) VALUES (?, ?, ?, ?, ?)",
+            (str(uuid.uuid4()), client_id, "system", summary, datetime.now().isoformat()),
+        )
+        conn.commit()
+        conn.close()
+
+        await send_to(ws, {
+            "type": "chat_response",
+            "client_id": client_id,
+            "task_id": task_id,
+            "payload": {"content": summary, "analysis": None},
+        })
+        return
 
     if is_rag_delete and rag_delete_keywords:
         from db.database import delete_client_rag
