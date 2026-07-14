@@ -290,7 +290,7 @@ DOCUMENTS:
 RECENT CONVERSATION:
 {chr(10).join(chat_lines) if chat_lines else '  No prior conversations.'}"""
 
-    return await call_claude(system, user_msg, max_tokens=512, temperature=0.3)
+    return await call_claude(system, user_msg, max_tokens=512)
 
 
 async def handle_chat_message(ws: WebSocket, message: dict):
@@ -642,7 +642,7 @@ async def _synthesize_summary(
             "Do NOT include greetings. End with a prompt to open the full analysis panel."
         )
         user_msg = f"Advisor asked about client {client['name']}: \"{query}\"\n\n" + "\n".join(parts)
-        return await call_claude(system, user_msg, max_tokens=256, temperature=0.3)
+        return await call_claude(system, user_msg, max_tokens=256)
     except Exception:
         summary_parts = []
         if quant_result and quant_result.get("summary"):

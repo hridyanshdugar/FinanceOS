@@ -53,15 +53,17 @@ async def call_claude(
     user_message: str,
     model: str = MODEL_SONNET,
     max_tokens: int = 2048,
-    temperature: float = 0.3,
 ) -> str:
-    """Call Claude and return the text response."""
+    """Call Claude and return the text response.
+
+    Sampling params (temperature/top_p/top_k) are omitted — Sonnet 5 and
+    newer Opus models reject them; prompt for style instead.
+    """
     client = _get_anthropic_client()
     response = await asyncio.to_thread(
         client.messages.create,
         model=model,
         max_tokens=max_tokens,
-        temperature=temperature,
         system=system,
         messages=[{"role": "user", "content": user_message}],
     )
@@ -73,10 +75,9 @@ async def call_claude_json(
     user_message: str,
     model: str = MODEL_SONNET,
     max_tokens: int = 2048,
-    temperature: float = 0.2,
 ) -> dict:
     """Call Claude and parse the response as JSON."""
-    raw = await call_claude(system, user_message, model, max_tokens, temperature)
+    raw = await call_claude(system, user_message, model, max_tokens)
     return _parse_json(raw)
 
 
