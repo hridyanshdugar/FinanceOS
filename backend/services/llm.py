@@ -22,12 +22,17 @@ def _get_anthropic_client():
 
 
 def _extract_text(response) -> str:
-    """Extract concatenated text from a response that may contain mixed content blocks."""
+    """Extract concatenated text from a response that may contain mixed content blocks.
+
+    Sonnet 5+ may return ThinkingBlock(s) before TextBlock(s); only text blocks
+    are included.
+    """
     parts = []
     for block in response.content:
-        if hasattr(block, "text"):
+        block_type = getattr(block, "type", None)
+        if block_type == "text" or (block_type is None and hasattr(block, "text")):
             parts.append(block.text)
-        elif isinstance(block, dict) and "text" in block:
+        elif isinstance(block, dict) and block.get("type", "text") == "text" and "text" in block:
             parts.append(block["text"])
     return "\n".join(parts)
 
@@ -67,7 +72,7 @@ async def call_claude(
         system=system,
         messages=[{"role": "user", "content": user_message}],
     )
-    return response.content[0].text
+    return _extract_text(response)
 
 
 async def call_claude_json(
