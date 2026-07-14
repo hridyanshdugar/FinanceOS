@@ -1,8 +1,7 @@
 """
 LLM client wrapper for Claude (Anthropic).
-Haiku 3.5 handles fast routing and classification tasks.
-Sonnet 4 handles substantive agent work and user-facing output.
-Web-search-enabled variants let Claude autonomously search the web.
+Haiku 4.5 handles fast routing and classification tasks.
+Sonnet 5 handles substantive agent work and user-facing output.
 """
 from __future__ import annotations
 
@@ -13,7 +12,7 @@ from functools import lru_cache
 from config import ANTHROPIC_API_KEY
 
 MODEL_HAIKU = "claude-haiku-4-5-20251001"
-MODEL_SONNET = "claude-sonnet-4-20250514"
+MODEL_SONNET = "claude-sonnet-5"
 
 
 @lru_cache()
