@@ -53,11 +53,25 @@ def _parse_json(raw: str) -> dict:
     return json.loads(text)
 
 
+def _sonnet_request_kwargs(model: str) -> dict:
+    """Sonnet 5 enables adaptive thinking by default; thinking tokens count against
+    max_tokens and often starve short/JSON responses. Disable for our agent use case.
+    """
+    if (
+        model.startswith("claude-sonnet-5")
+        or model.startswith("claude-fable")
+        or model.startswith("claude-opus-4-8")
+        or model.startswith("claude-opus-4-7")
+    ):
+        return {"thinking": {"type": "disabled"}}
+    return {}
+
+
 async def call_claude(
     system: str,
     user_message: str,
     model: str = MODEL_SONNET,
-    max_tokens: int = 2048,
+    max_tokens: int = 4096,
 ) -> str:
     """Call Claude and return the text response.
 
@@ -71,18 +85,22 @@ async def call_claude(
         max_tokens=max_tokens,
         system=system,
         messages=[{"role": "user", "content": user_message}],
+        **_sonnet_request_kwargs(model),
     )
-    return _extract_text(response)
+    text = _extract_text(response)
+    if not text.strip():
+        raise ValueError(
+            f"Empty text from {model} (stop_reason={getattr(response, 'stop_reason', None)})"
+        )
+    return text
 
 
 async def call_claude_json(
     system: str,
     user_message: str,
     model: str = MODEL_SONNET,
-    max_tokens: int = 2048,
+    max_tokens: int = 4096,
 ) -> dict:
     """Call Claude and parse the response as JSON."""
     raw = await call_claude(system, user_message, model, max_tokens)
     return _parse_json(raw)
-
-
